@@ -1,3 +1,8 @@
+DROP TABLE IF EXISTS ingestion_exclusion_log CASCADE;
+DROP TABLE IF EXISTS tenancy_record CASCADE;
+DROP TABLE IF EXISTS unit CASCADE;
+DROP TABLE IF EXISTS site CASCADE;
+
 CREATE TABLE site (
     pnu               VARCHAR(19) PRIMARY KEY,
     jibun_address     VARCHAR(200) NOT NULL,
