@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: nextstep-server
+  datasource:
+    url: jdbc:h2:file:./data/nextstep;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  cache:
+    type: caffeine
+    cache-names: sameCategoryNearbyCount
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=10m
+
+sangga:
+  api:
+    base-url: https://apis.data.go.kr/B553077/api/open/sdsc2
+    service-key: ${SANGGA_SERVICE_KEY:}
+
+server:
+  port: 8080
