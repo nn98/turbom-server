@@ -1,5 +1,6 @@
 package com.nextstep.infra.persistence;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -14,7 +15,9 @@ public class SiteEntity {
     private String roadAddress;
     private BigDecimal longitude;
     private BigDecimal latitude;
+    @Column(name = "original_x")
     private BigDecimal originalX;
+    @Column(name = "original_y")
     private BigDecimal originalY;
     private Boolean addressCorrected;
     private String localGovCode;
