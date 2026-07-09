@@ -21,9 +21,11 @@ public class SiteQueryService {
     private static final String DISCLAIMER_NOTE = "인허가 신고 기준 데이터로 실제 영업 현황과 차이가 있을 수 있습니다.";
 
     private final TenancyQueryService tenancyQueryService;
+    private final MarketInfoService marketInfoService;
 
-    public SiteQueryService(TenancyQueryService tenancyQueryService) {
+    public SiteQueryService(TenancyQueryService tenancyQueryService, MarketInfoService marketInfoService) {
         this.tenancyQueryService = tenancyQueryService;
+        this.marketInfoService = marketInfoService;
     }
 
     public SearchResponse search(String query) {
@@ -54,7 +56,14 @@ public class SiteQueryService {
         Unit unit = unitWithSite.unit();
         Site site = unitWithSite.site();
 
-        MarketInfo marketInfo = MarketInfo.unavailable();
+        String representativeSubCategory = unit.tenancies().stream()
+            .max(Comparator.comparing(t -> t.period().licensedAt()))
+            .map(Tenancy::subCategory)
+            .orElse(null);
+        Double lat = site.coordinate() == null ? null : site.coordinate().latitude();
+        Double lon = site.coordinate() == null ? null : site.coordinate().longitude();
+
+        var marketInfo = marketInfoService.fetch(site.pnu().value(), lon, lat, representativeSubCategory);
 
         List<TenancyDto> timeline = unit.tenancies().stream()
             .map(t -> toTenancyDto(t, marketInfo))
