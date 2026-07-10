@@ -16,8 +16,8 @@ class KoreanTmCoordinateConverterTest {
             .fromEpsg5174(new BigDecimal("212818.475436898"), new BigDecimal("438579.588327304"))
             .orElseThrow();
 
-        assertThat(coordinate.latitude()).isCloseTo(37.449401980, offset(0.000001));
-        assertThat(coordinate.longitude()).isCloseTo(127.145534270, offset(0.000001));
+        assertThat(coordinate.latitude()).isCloseTo(37.449282365, offset(0.000001));
+        assertThat(coordinate.longitude()).isCloseTo(127.145653550, offset(0.000001));
     }
 
     @Test

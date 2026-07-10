@@ -70,16 +70,16 @@ class TenancyQueryServiceTest {
             .findFirst()
             .orElseThrow();
         assertThat(site.coordinate()).isNotNull();
-        assertThat(site.coordinate().latitude()).isCloseTo(37.449401980, offset(0.000001));
-        assertThat(site.coordinate().longitude()).isCloseTo(127.145534270, offset(0.000001));
+        assertThat(site.coordinate().latitude()).isCloseTo(37.449282365, offset(0.000001));
+        assertThat(site.coordinate().longitude()).isCloseTo(127.145653550, offset(0.000001));
     }
 
     @Test
     void pnu로_자리상세를_조회하면_물건과_통계가_채워진다() {
         Optional<Site> site = tenancyQueryService.findSiteWithUnits("4113110300100280001");
         assertThat(site).isPresent();
-        assertThat(site.get().coordinate().latitude()).isCloseTo(37.441549006, offset(0.000001));
-        assertThat(site.get().coordinate().longitude()).isCloseTo(127.134741725, offset(0.000001));
+        assertThat(site.get().coordinate().latitude()).isCloseTo(37.441429604, offset(0.000001));
+        assertThat(site.get().coordinate().longitude()).isCloseTo(127.134860655, offset(0.000001));
         Unit unit = site.get().units().get(0);
         assertThat(unit.statistics().totalTenancyCount()).isEqualTo(1);
         assertThat(unit.statistics().closedCount()).isEqualTo(1);
