@@ -1,7 +1,6 @@
 package com.nextstep.domain.unit;
 
 import com.nextstep.domain.statistics.UnitStatistics;
-import com.nextstep.domain.tenancy.BusinessStatus;
 import com.nextstep.domain.tenancy.Tenancy;
 import java.util.Comparator;
 import java.util.List;
@@ -14,7 +13,7 @@ public record Unit(String unitId, String label, LocationSource locationSource, L
 
     public Optional<Tenancy> currentTenancy() {
         return tenancies.stream()
-            .filter(t -> t.status() == BusinessStatus.ACTIVE)
+            .filter(Tenancy::isActive)
             .max(Comparator.comparing(t -> t.period().licensedAt()));
     }
 }

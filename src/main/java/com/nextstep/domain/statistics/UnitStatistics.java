@@ -1,6 +1,5 @@
 package com.nextstep.domain.statistics;
 
-import com.nextstep.domain.tenancy.BusinessStatus;
 import com.nextstep.domain.tenancy.Tenancy;
 import java.util.List;
 
@@ -13,7 +12,7 @@ public record UnitStatistics(
 ) {
     public static UnitStatistics from(List<Tenancy> tenancies) {
         List<Integer> closedMonths = tenancies.stream()
-            .filter(t -> t.status() == BusinessStatus.CLOSED)
+            .filter(Tenancy::isClosed)
             .map(Tenancy::survivalMonths)
             .toList();
 

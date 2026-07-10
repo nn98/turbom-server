@@ -2,7 +2,6 @@ package com.nextstep.application;
 
 import com.nextstep.domain.site.Pnu;
 import com.nextstep.domain.site.Site;
-import com.nextstep.domain.tenancy.BusinessStatus;
 import com.nextstep.domain.tenancy.Tenancy;
 import com.nextstep.domain.tenancy.TenancyPeriod;
 import com.nextstep.domain.unit.LocationSource;
@@ -109,7 +108,7 @@ public class TenancyQueryService {
             entity.getSubCategory(),
             null,
             new TenancyPeriod(entity.getLicensedAt(), entity.getClosedAt()),
-            BusinessStatus.fromDb(entity.getBusinessStatus()),
+            entity.getBusinessStatus(),
             "license_only"
         );
     }

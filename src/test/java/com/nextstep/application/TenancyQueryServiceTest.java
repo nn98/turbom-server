@@ -1,7 +1,6 @@
 package com.nextstep.application;
 
 import com.nextstep.domain.site.Site;
-import com.nextstep.domain.tenancy.BusinessStatus;
 import com.nextstep.domain.unit.Unit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -152,6 +151,6 @@ class TenancyQueryServiceTest {
             .flatMap(unit -> unit.tenancies().stream())
             .map(tenancy -> tenancy.status())
             .distinct())
-            .containsExactlyInAnyOrder(BusinessStatus.ACTIVE, BusinessStatus.CLOSED);
+            .contains("영업/정상", "폐업", "제외/삭제/전출");
     }
 }

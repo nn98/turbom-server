@@ -62,7 +62,7 @@ com.nextstep
 ├── domain
 │   ├── site/       Site, Pnu(값객체)
 │   ├── unit/       Unit, UnitLabel, LocationSource
-│   ├── tenancy/    Tenancy, TenancyPeriod, BusinessStatus, SurvivalMonths
+│   ├── tenancy/    Tenancy, TenancyPeriod, SurvivalMonths
 │   ├── statistics/ UnitStatistics (도메인 계산 로직)
 │   └── market/     MarketInfo, NearbyCategoryCount (외부 데이터의 도메인 표현)
 └── infra
@@ -111,7 +111,7 @@ Tenancy
 - category: String            // 대분류 (예: 동물), NOT NULL, 타임라인 표시
 - subCategory: String         // 소분류 (예: 동물미용업), NOT NULL, 상세 표시
 - period: TenancyPeriod       // 값객체: licensedAt, closedAt?
-- status: BusinessStatus      // 영업 | 폐업
+- status: String              // licensed_business_record.business_status 원본값
 - survivalMonths: SurvivalMonths  // period로부터 계산
 
 TenancyPeriod (값객체)
@@ -226,7 +226,7 @@ SiteQueryService.getSiteDetail(pnu):
 | Tenancy.subCategory | 소분류 (NOT NULL, 상세 표시) |
 | Tenancy.licensedAt | 인허가일자 |
 | Tenancy.closedAt | 폐업일자 (실값, 공백=영업중) |
-| Tenancy.status | 영업상태 → {영업,폐업} |
+| Tenancy.status | 영업상태. `영업/정상`은 `영업`으로 응답하고, 그 외 값은 원본 문자열 유지 |
 
 **마스킹 처리**: 주소보정성공여부·마스킹 흔적으로 저품질 레코드 제외(ingestion_exclusion_log). "10만→유효 5만"의 실체이자 발표의 데이터 정직성 근거.
 
@@ -249,7 +249,7 @@ SiteQueryService.getSiteDetail(pnu):
 ## 9. schema.sql 반영 사항 (폐업일자·호실분리 반영)
 
 - `licensed_business_record.closed_at` = 폐업일자 실값(nullable, null=영업중). `closed_at_estimated`는 API 호환을 위해 조립 시 항상 false
-- `licensed_business_record.business_status`는 원본값을 보존하고 API 조립 시 `영업/정상`을 `영업`으로 정규화
+- `licensed_business_record.business_status`는 원본값을 보존한다. API 응답에서는 `영업/정상`만 `영업`으로 표시하고, 그 외 상태는 원본 문자열을 그대로 전달
 - `licensed_business_record`는 CSV 19컬럼 구조를 영문 컬럼명으로 보존하고, Site/Unit/Tenancy 계층은 Java 조회 서비스에서 조립
 - **MarketInfo는 테이블 없음**: 실시간 API 호출 결과라 DB에 영속화하지 않음(캐시만). schema.sql에서 marketInfo 관련 테이블 제거 — 이게 이전 버전과의 핵심 차이(이전엔 캐시 테이블을 뒀지만, "상권=실시간 호출" 원칙을 명확히 하려면 DB 영속화 자체를 안 하는 게 설계 의도에 맞음. 인메모리 캐시로 충분).
 

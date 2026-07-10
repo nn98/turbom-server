@@ -5,7 +5,6 @@ import com.nextstep.domain.exception.SiteNotFoundException;
 import com.nextstep.domain.exception.UnitNotFoundException;
 import com.nextstep.domain.market.MarketInfo;
 import com.nextstep.domain.site.Site;
-import com.nextstep.domain.tenancy.BusinessStatus;
 import com.nextstep.domain.tenancy.Tenancy;
 import com.nextstep.domain.unit.Unit;
 import com.nextstep.web.dto.ApiDtos.*;
@@ -78,7 +77,7 @@ public class SiteQueryService {
     private SiteCandidateDto toCandidateDto(Site site) {
         int closedCount = site.units().stream()
             .flatMap(u -> u.tenancies().stream())
-            .filter(t -> t.status() == BusinessStatus.CLOSED)
+            .filter(Tenancy::isClosed)
             .toList().size();
         Double lat = site.coordinate() == null ? null : site.coordinate().latitude();
         Double lon = site.coordinate() == null ? null : site.coordinate().longitude();
@@ -116,7 +115,7 @@ public class SiteQueryService {
 
         return new TenancyDto("t-" + tenancy.id(), tenancy.businessName(), tenancy.category(), tenancy.subCategory(),
             tenancy.industryDetail(), tenancy.period().licensedAt(), tenancy.period().closedAt(),
-            tenancy.status().display(), tenancy.survivalMonths(), tenancy.closedAtEstimated(),
+            tenancy.displayStatus(), tenancy.survivalMonths(), tenancy.closedAtEstimated(),
             tenancy.enrichmentSource(), marketInfoDto);
     }
 

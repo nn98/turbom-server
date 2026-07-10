@@ -1,6 +1,5 @@
 package com.nextstep.domain.statistics;
 
-import com.nextstep.domain.tenancy.BusinessStatus;
 import com.nextstep.domain.tenancy.Tenancy;
 import com.nextstep.domain.tenancy.TenancyPeriod;
 import org.junit.jupiter.api.Test;
@@ -12,12 +11,12 @@ class UnitStatisticsTest {
 
     private Tenancy closed(LocalDate start, LocalDate end) {
         return new Tenancy(1L, "가게", "음식", "일반음식점", null,
-            new TenancyPeriod(start, end), BusinessStatus.CLOSED, "license_only");
+            new TenancyPeriod(start, end), "폐업", "license_only");
     }
 
     private Tenancy active(LocalDate start) {
         return new Tenancy(2L, "가게2", "음식", "일반음식점", null,
-            new TenancyPeriod(start, null), BusinessStatus.ACTIVE, "license_only");
+            new TenancyPeriod(start, null), "영업/정상", "license_only");
     }
 
     @Test

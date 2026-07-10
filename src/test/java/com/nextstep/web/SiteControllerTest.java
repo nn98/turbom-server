@@ -16,8 +16,11 @@ class SiteControllerTest {
 
     private static final String DUPLICATE_PNU = "4113110100100990000";
     private static final String CSV_ADDRESS_UNIT_PNU = "4113110800105590004";
+    private static final String RAW_STATUS_PNU = "4113110100100970000";
     private static final String DELETE_DUPLICATE_PNU =
         "DELETE FROM licensed_business_record WHERE pnu = '" + DUPLICATE_PNU + "'";
+    private static final String DELETE_RAW_STATUS_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + RAW_STATUS_PNU + "'";
     private static final String INSERT_DUPLICATE_UNIT_1 =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
@@ -35,6 +38,15 @@ class SiteControllerTest {
             + "VALUES (990002, '4113110100100990000', '동물', '동물병원', 'test-license-2', '중복PNU 2층', "
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 1, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 99 2층', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_RAW_STATUS =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (990201, '4113110100100970000', '건강', '의료기기판매(임대)업', 'test-license-5', "
+            + "'원본상태 테스트', NULL, '휴업', NULL, NULL, '2024-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 3 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
 
     @Autowired MockMvc mockMvc;
@@ -85,6 +97,7 @@ class SiteControllerTest {
         mockMvc.perform(get("/api/units/4113110100100340000-U1"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(jsonPath("$.timeline[0].status").value("영업"))
             .andExpect(jsonPath("$.timeline[0].marketInfo.isPlaceholder").value(true))
             .andExpect(jsonPath("$.statistics.totalTenancyCount").value(1));
     }
@@ -103,7 +116,19 @@ class SiteControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.unit.roadAddress").value(org.hamcrest.Matchers.containsString("2층")))
             .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(1)))
-            .andExpect(jsonPath("$.timeline[0].businessName").value("중복PNU 2층"));
+            .andExpect(jsonPath("$.timeline[0].businessName").value("중복PNU 2층"))
+            .andExpect(jsonPath("$.timeline[0].status").value("폐업"));
+    }
+
+    @Test
+    @Sql(statements = {DELETE_RAW_STATUS_PNU, INSERT_RAW_STATUS})
+    @Sql(statements = DELETE_RAW_STATUS_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 상세영업상태가_없어도_영업상태_원본값을_그대로_응답한다() throws Exception {
+        mockMvc.perform(get("/api/units/" + RAW_STATUS_PNU + "-U1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(jsonPath("$.timeline[0].businessName").value("원본상태 테스트"))
+            .andExpect(jsonPath("$.timeline[0].status").value("휴업"));
     }
 
     @Test
