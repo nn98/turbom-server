@@ -110,10 +110,14 @@ public class SiteQueryService {
     }
 
     private TenancyDto toTenancyDto(Tenancy tenancy, MarketInfo marketInfo) {
+        List<CategoryCountDto> categoryBreakdown = marketInfo.categoryBreakdown().stream()
+            .map(c -> new CategoryCountDto(c.code(), c.name(), c.count(), c.ratio()))
+            .toList();
         MarketInfoDto marketInfoDto = new MarketInfoDto(marketInfo.isPlaceholder(), MarketInfo.LEASE_AREA_SQM,
             MarketInfo.DEPOSIT_KRW, MarketInfo.MONTHLY_RENT_KRW, MarketInfo.KEY_MONEY_KRW,
             MarketInfo.DAILY_FLOATING_POPULATION, marketInfo.sameCategoryNearbyCount(),
-            MarketInfo.VACANCY_RATE_PERCENT, marketInfo.asOf());
+            MarketInfo.VACANCY_RATE_PERCENT, marketInfo.asOf(),
+            marketInfo.totalStoreCount(), categoryBreakdown);
 
         return new TenancyDto("t-" + tenancy.id(), tenancy.businessName(), tenancy.category(), tenancy.subCategory(),
             tenancy.industryDetail(), tenancy.period().licensedAt(), tenancy.period().closedAt(),

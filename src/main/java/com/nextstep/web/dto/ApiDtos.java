@@ -44,7 +44,13 @@ public class ApiDtos {
 
     public record MarketInfoDto(boolean isPlaceholder, Double leaseAreaSqm, Long depositKrw, Long monthlyRentKrw,
                                  Long keyMoneyKrw, Integer dailyFloatingPopulation, Integer sameCategoryNearbyCount,
-                                 Double vacancyRatePercent, LocalDate asOf) {
+                                 Double vacancyRatePercent, LocalDate asOf,
+                                 Integer totalStoreCount, List<CategoryCountDto> categoryBreakdown) {
+    }
+
+    // 반경 내 상가 대분류 하나의 점포수·비중(0~1). 프론트가 업종을 선택하면 이 목록에서
+    // 골라 "그 업종 점포수 / 경쟁률(ratio)"을 보여줄 수 있다.
+    public record CategoryCountDto(String code, String name, int count, double ratio) {
     }
 
     public record DisclaimerDto(LocalDate dataAsOf, String note) {

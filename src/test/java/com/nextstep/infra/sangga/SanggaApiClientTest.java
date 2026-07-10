@@ -63,4 +63,39 @@ class SanggaApiClientTest {
         assertThatThrownBy(() -> client.countInRadiusByCategory(127.0, 37.0, 2001, "I2"))
             .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void 전체점포수_요약은_업종필터없이_500건까지_조회한다() {
+        String body = """
+            {"header":{"resultCode":"00","resultMsg":"NORMAL SERVICE"},
+             "body":{"totalCount":2,"items":[{"indsLclsCd":"I2","indsLclsNm":"음식"},{"indsLclsCd":"G2","indsLclsNm":"소매"}]}}
+            """;
+        server.expect(requestToUriTemplate(
+                "https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius?serviceKey=test-key&cx={cx}&cy={cy}&radius={radius}&numOfRows={numOfRows}&pageNo={pageNo}&type={type}",
+                127.1456208, 37.4492216, 300, 500, 1, "json"))
+            .andExpect(method(GET))
+            .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        SanggaStoreListResponse.SanggaBody summary = client.fetchRadiusSummary(127.1456208, 37.4492216, 300);
+
+        assertThat(summary.totalCount()).isEqualTo(2);
+        assertThat(summary.items()).hasSize(2);
+    }
+
+    @Test
+    void 전체점포수_요약_NODATA_ERROR는_빈_요약으로_처리한다() {
+        String body = """
+            {"header":{"resultCode":"03","resultMsg":"NODATA_ERROR"},"body":{}}
+            """;
+        server.expect(requestToUriTemplate(
+                "https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius?serviceKey=test-key&cx={cx}&cy={cy}&radius={radius}&numOfRows={numOfRows}&pageNo={pageNo}&type={type}",
+                127.0, 37.0, 300, 500, 1, "json"))
+            .andExpect(method(GET))
+            .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        SanggaStoreListResponse.SanggaBody summary = client.fetchRadiusSummary(127.0, 37.0, 300);
+
+        assertThat(summary.totalCount()).isEqualTo(0);
+        assertThat(summary.items()).isEmpty();
+    }
 }

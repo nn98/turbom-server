@@ -6,11 +6,13 @@ import org.springframework.web.client.RestClient;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Component
 public class SanggaApiClient {
 
     private static final int MAX_RADIUS_METERS = 2000;
+    private static final int BREAKDOWN_NUM_OF_ROWS = 500; // API 1회 최대치. 그 이상 밀집 지역은 근사치.
 
     private final RestClient restClient;
     private final SanggaProperties properties;
@@ -56,5 +58,40 @@ public class SanggaApiClient {
             return 0;
         }
         return response.body().totalCount();
+    }
+
+    /**
+     * 반경 내 전체 업소 수(totalCount, 업종 필터 없음)와 업종 대분류 구성용 표본(items,
+     * 최대 500건)을 함께 가져온다. totalCount는 항상 정확하지만 items는 500건을 넘는
+     * 초밀집 반경에서는 근사치다 — 이 프로젝트의 반경(300m)에서는 실측상 그런 사례가
+     * 없었다.
+     */
+    public SanggaStoreListResponse.SanggaBody fetchRadiusSummary(double lon, double lat, int radiusMeters) {
+        if (radiusMeters > MAX_RADIUS_METERS) {
+            throw new IllegalArgumentException("반경은 최대 " + MAX_RADIUS_METERS + "m까지입니다: " + radiusMeters);
+        }
+
+        String encodedServiceKey = URLEncoder.encode(properties.serviceKey(), StandardCharsets.UTF_8);
+        URI uri = URI.create(properties.baseUrl() + "/storeListInRadius"
+            + "?serviceKey=" + encodedServiceKey
+            + "&cx=" + lon
+            + "&cy=" + lat
+            + "&radius=" + radiusMeters
+            + "&numOfRows=" + BREAKDOWN_NUM_OF_ROWS
+            + "&pageNo=1"
+            + "&type=json");
+
+        SanggaStoreListResponse response = restClient.get()
+            .uri(uri)
+            .retrieve()
+            .body(SanggaStoreListResponse.class);
+
+        if (response == null || response.body() == null) {
+            return new SanggaStoreListResponse.SanggaBody(0, List.of());
+        }
+        int totalCount = response.body().totalCount() == null ? 0 : response.body().totalCount();
+        List<SanggaStoreListResponse.SanggaStoreItem> items = response.body().items() == null
+            ? List.of() : response.body().items();
+        return new SanggaStoreListResponse.SanggaBody(totalCount, items);
     }
 }

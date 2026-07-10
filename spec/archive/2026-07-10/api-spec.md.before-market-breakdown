@@ -177,13 +177,7 @@
         "dailyFloatingPopulation": 21400,
         "sameCategoryNearbyCount": 14,
         "vacancyRatePercent": 6.2,
-        "asOf": "2026-07-04",
-        "totalStoreCount": 28,
-        "categoryBreakdown": [
-          { "code": "I2", "name": "음식", "count": 14, "ratio": 0.5 },
-          { "code": "G2", "name": "소매", "count": 8, "ratio": 0.2857142857142857 },
-          { "code": "S2", "name": "수리·개인", "count": 6, "ratio": 0.21428571428571427 }
-        ]
+        "asOf": "2026-07-04"
       }
     },
     {
@@ -206,13 +200,7 @@
         "dailyFloatingPopulation": 21400,
         "sameCategoryNearbyCount": 11,
         "vacancyRatePercent": 6.2,
-        "asOf": "2026-07-04",
-        "totalStoreCount": 28,
-        "categoryBreakdown": [
-          { "code": "I2", "name": "음식", "count": 11, "ratio": 0.39285714285714285 },
-          { "code": "G2", "name": "소매", "count": 10, "ratio": 0.35714285714285715 },
-          { "code": "S2", "name": "수리·개인", "count": 7, "ratio": 0.25 }
-        ]
+        "asOf": "2026-07-04"
       }
     }
   ],
@@ -254,21 +242,15 @@
 | monthlyRentKrw | number\|null | **없음(목업)** | 월세 |
 | keyMoneyKrw | number\|null | **없음(목업)** | 권리금(0=무) |
 | dailyFloatingPopulation | number\|null | **없음(목업)** | 일평균 유동인구 |
-| sameCategoryNearbyCount | number\|null | **실제 — 상가API 반경조회** | 자리 좌표 기준 반경(300m) 내 동일 업종(대분류 매핑) 점포 수. `isPlaceholder`와 무관하게 항상 실값 시도, 실패 시에만 null |
+| sameCategoryNearbyCount | number | **실제 — 상가API 반경조회** | 자리 좌표 기준 반경 내 동일 업종 점포 수. `isPlaceholder`와 무관하게 항상 실값 시도, 실패 시에만 null |
 | vacancyRatePercent | number\|null | **없음(목업)** | 주변 공실률 |
 | asOf | string(date) | — | 기준일 |
-| totalStoreCount | number\|null | **[신규] 실제 — 상가API 반경조회** | 업종 필터 없이 같은 반경 내 전체 점포 수. `sameCategoryNearbyCount` 조회는 성공했는데 이 호출만 실패하면 null(별개 호출로 격리) |
-| categoryBreakdown | array\|null | **[신규] 실제 — 상가API 반경조회** | 반경 내 상가 대분류별 점포수·비중(`ratio`=count/totalStoreCount). 아래 표. 실패 시 빈 배열 |
 
-`categoryBreakdown[]` 원소: `{ code, name, count, ratio }` — `code`/`name`은 상가API 대분류 코드·이름(예: `I2`/`음식`), `count`는 그 대분류의 반경 내 점포수, `ratio`는 0~1 소수(전체 대비 비중). 프론트는 이 배열로 업종을 선택하게 하고, 선택한 업종의 `count`/`ratio`를 보여줄 수 있다 — `sameCategoryNearbyCount`는 **이 물건의 현재 업종** 기준 고정값이라는 점과 구분할 것.
-
-인허가 소분류(136종 실측)와 상가API 대분류(G2 소매·I1 숙박·I2 음식·L1 부동산·M1 과학·기술·N1 시설관리·임대·P1 교육·Q1 보건의료·R1 예술·스포츠·S2 수리·개인, 10종)는 서로 다른 분류 체계라 공식 매핑표가 없다 — 도축업·제조업·도매업처럼 애초에 "상가 상권" 개념이 없는 소분류는 매핑하지 않고, 그 경우 `sameCategoryNearbyCount`/`totalStoreCount`/`categoryBreakdown` 전부 null·빈 배열로 응답한다(실패가 아니라 "비교 대상 없음").
-
-`sameCategoryNearbyCount`·`totalStoreCount`·`categoryBreakdown`은 선택된 이력이 어느 것이든 **현재 시점 기준 동일 값**이 나간다 — 상가API가 현재 스냅샷만 주기 때문에 과거 이력을 조회해도 "그 시절 주변 상황"은 알 수 없다. 이 값이 과거를 재현한 게 아니라 "지금 기준"이라는 걸 화면에 명시해야 한다(marketInfo.asOf가 그 역할).
+`sameCategoryNearbyCount`는 선택된 이력이 어느 것이든 **현재 시점 기준 동일 값**이 나간다 — 상가API가 현재 스냅샷만 주기 때문에 과거 이력을 조회해도 "그 시절 주변 상황"은 알 수 없다. 이 값이 과거를 재현한 게 아니라 "지금 기준"이라는 걸 화면에 명시해야 한다(marketInfo.asOf가 그 역할).
 
 - unitId 없음: 404 `UNIT_NOT_FOUND`
 - `timeline`은 `licensedAt` 오름차순.
-- `marketInfo`는 매 이력 항목마다 내려가지만(드롭다운에서 어느 걸 선택해도 즉시 표시 가능하도록), 값 자체는 목업 5필드(leaseAreaSqm~vacancyRatePercent) 한정으로 전 항목 동일. `sameCategoryNearbyCount`/`totalStoreCount`/`categoryBreakdown`은 선택 물건의 업종·좌표에 따라 달라질 수 있음(물건마다 대표 업종이 다르면).
+- `marketInfo`는 매 이력 항목마다 내려가지만(드롭다운에서 어느 걸 선택해도 즉시 표시 가능하도록), 값 자체는 6개 목업 필드 한정으로 전 항목 동일. `sameCategoryNearbyCount`만 선택 물건의 업종에 따라 달라질 수 있음(물건마다 대표 업종이 다르면).
 
 ---
 
@@ -285,5 +267,5 @@
 | UNIT_NOT_FOUND | 404 | unitId 없음 |
 | INTERNAL_ERROR | 500 | 서버 오류 |
 
-`sameCategoryNearbyCount`/`totalStoreCount`/`categoryBreakdown` 산출 실패(상가API 오류)는 별도 에러 코드 없이 해당 필드만 `null`(또는 빈 배열)로 응답한다 — 전체 요청은 계속 200. 세 필드는 각각 독립적인 API 호출 결과라 하나만 실패할 수도 있다(`sameCategoryNearbyCount`는 있는데 `totalStoreCount`/`categoryBreakdown`만 null인 경우 등).
+`sameCategoryNearbyCount` 산출 실패(상가API 오류)는 별도 에러 코드 없이 해당 필드만 `null`로 응답한다 — 전체 요청은 계속 200.
 

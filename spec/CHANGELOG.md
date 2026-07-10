@@ -10,6 +10,17 @@
 
 ## 이력
 
+### 2026-07-10 (11차) — marketInfo에 전체점포수·업종구성 추가 (`api-spec.md`)
+
+`timeline[].marketInfo`가 `sameCategoryNearbyCount` 하나뿐이라 "동일업종 몇 곳" 말고는 상권 정보가 빈약하다는 지적(사용자 확정)에 따라 실제 상가API 반경조회에서 더 뽑아낼 값이 있는지 재조사:
+
+- **가능**: `totalStoreCount`(업종 필터 없이 같은 반경 totalCount), `categoryBreakdown`(대분류별 점포수·비중) — 별도 호출 1건(numOfRows=500, 업종필터 없음)으로 둘 다 얻음. `ratio`는 파생 계산(count/totalStoreCount)이라 "경쟁률" 요구도 충족
+- **불가로 확정**: "최근개업수" — `상권조회-API-명세.md`가 응답 필드로 명시한 `chgGb`(변경구분)/`chgDt`(변경일자)를 실응답 39개 필드 전수 확인했으나 **존재하지 않음**. 명세 문서 자체가 부정확했던 것으로 보임(정정 필요, 아직 미반영). "상권특징"(서술형)도 API가 직접 안 줌 — 업종구성 기반 자체 휴리스틱 영역이라 API 확장과 무관
+- `sameCategoryNearbyCount`/`totalStoreCount`/`categoryBreakdown` 3개는 각각 독립된 API 호출이라 부분 실패 가능(하나만 null이고 나머지는 정상일 수 있음) — 기존 "상가API 실패는 해당 필드만 null" 원칙 그대로 확장 적용
+- 실API로 검증: 일반음식점 물건 기준 `sameCategoryNearbyCount=6`, `totalStoreCount=12`, `categoryBreakdown`에 대분류 5개(음식 50%, 과학·기술 25% 등) 정상 수신
+- 백엔드(`server/` 리포) `MarketInfo`/`MarketInfoDto`/`SanggaApiClient`/`MarketInfoService`에 반영, 테스트 포함 커밋. 수정 전 스냅샷: `spec/archive/2026-07-10/api-spec.md.before-market-breakdown`
+- **미반영**: `frontend-spec.md`(이 필드를 화면에서 어떻게 쓸지)와 `상권조회-API-명세.md`(chgGb/chgDt 필드 오류 정정) — 다음 정합성 점검 대상
+
 ### 2026-07-10 (10차) — 도로명주소 상세 오프라인 파싱 반영 (`api-spec.md`·`schema.sql`)
 
 `units[]`/`unit` 응답의 `label`이 응답 시점 실시간 정규식(`TenancyQueryService.unitLabel(String)`)으로 만들어지고 있었는데, 버그(괄호가 먼저 나오면 층 정보가 통째로 유실 — 예: "1(일부)층") 및 낮은 커버리지(건물명 단독·"일부" 수식어 케이스 다수가 "단일 점포"로 뭉뚱그려짐)가 확인됨.

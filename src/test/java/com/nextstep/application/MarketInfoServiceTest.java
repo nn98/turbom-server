@@ -3,10 +3,13 @@ package com.nextstep.application;
 import com.nextstep.domain.market.MarketInfo;
 import com.nextstep.infra.sangga.SanggaApiClient;
 import com.nextstep.infra.sangga.SanggaProperties;
+import com.nextstep.infra.sangga.SanggaStoreListResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -30,6 +33,42 @@ class MarketInfoServiceTest {
 
         assertThat(result.sameCategoryNearbyCount()).isEqualTo(5);
         assertThat(result.isPlaceholder()).isTrue();
+    }
+
+    @Test
+    void 전체점포수와_업종구성도_함께_담는다() {
+        when(sanggaApiClient.countInRadiusByCategory(127.14, 37.44, 300, "S2")).thenReturn(5);
+        var items = List.of(
+            new SanggaStoreListResponse.SanggaStoreItem("I2", "음식"),
+            new SanggaStoreListResponse.SanggaStoreItem("I2", "음식"),
+            new SanggaStoreListResponse.SanggaStoreItem("S2", "수리·개인")
+        );
+        when(sanggaApiClient.fetchRadiusSummary(127.14, 37.44, 300))
+            .thenReturn(new SanggaStoreListResponse.SanggaBody(3, items));
+        MarketInfoService service = new MarketInfoService(sanggaApiClient, CONFIGURED_PROPERTIES);
+
+        MarketInfo result = service.fetch("pnu", 127.14, 37.44, "동물미용업");
+
+        assertThat(result.totalStoreCount()).isEqualTo(3);
+        assertThat(result.categoryBreakdown()).hasSize(2);
+        var top = result.categoryBreakdown().get(0);
+        assertThat(top.code()).isEqualTo("I2");
+        assertThat(top.count()).isEqualTo(2);
+        assertThat(top.ratio()).isCloseTo(2.0 / 3, org.assertj.core.data.Offset.offset(0.0001));
+    }
+
+    @Test
+    void 전체점포수_조회가_실패해도_동일업종수는_그대로_내려간다() {
+        when(sanggaApiClient.countInRadiusByCategory(127.14, 37.44, 300, "S2")).thenReturn(5);
+        when(sanggaApiClient.fetchRadiusSummary(127.14, 37.44, 300))
+            .thenThrow(new RuntimeException("network blocked"));
+        MarketInfoService service = new MarketInfoService(sanggaApiClient, CONFIGURED_PROPERTIES);
+
+        MarketInfo result = service.fetch("pnu", 127.14, 37.44, "동물미용업");
+
+        assertThat(result.sameCategoryNearbyCount()).isEqualTo(5);
+        assertThat(result.totalStoreCount()).isNull();
+        assertThat(result.categoryBreakdown()).isEmpty();
     }
 
     @Test
