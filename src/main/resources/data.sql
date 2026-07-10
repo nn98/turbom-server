@@ -1,0 +1,2 @@
+-- Seed data is split under src/main/resources/data/licensed-business-records-*.sql.
+-- See spring.sql.init.data-locations in application.yml.
