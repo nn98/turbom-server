@@ -26,26 +26,41 @@ class SanggaApiClientTest {
     }
 
     @Test
-    void 반경조회_응답에서_동일업종만_카운트한다() {
+    void 반경조회_응답의_totalCount를_그대로_쓴다() {
         String body = """
             {"header":{"resultCode":"00","resultMsg":"NORMAL SERVICE"},
-             "body":{"items":[{"indsSclsNm":"동물미용업"},{"indsSclsNm":"동물미용업"},{"indsSclsNm":"동물병원"}],
-                     "numOfRows":3,"pageNo":1,"totalCount":3}}
+             "body":{"totalCount":7}}
             """;
         server.expect(requestToUriTemplate(
-                "https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius?serviceKey=test-key&cx={cx}&cy={cy}&radius={radius}&numOfRows={numOfRows}&pageNo={pageNo}&type={type}",
-                127.1456208, 37.4492216, 300, 500, 1, "json"))
+                "https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius?serviceKey=test-key&cx={cx}&cy={cy}&radius={radius}&indsLclsCd={indsLclsCd}&numOfRows={numOfRows}&pageNo={pageNo}&type={type}",
+                127.1456208, 37.4492216, 300, "M1", 1, 1, "json"))
             .andExpect(method(GET))
             .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
 
-        int count = client.countSameCategoryInRadius(127.1456208, 37.4492216, 300, "동물미용업");
+        int count = client.countInRadiusByCategory(127.1456208, 37.4492216, 300, "M1");
 
-        assertThat(count).isEqualTo(2);
+        assertThat(count).isEqualTo(7);
+    }
+
+    @Test
+    void NODATA_ERROR_응답은_0으로_처리한다() {
+        String body = """
+            {"header":{"resultCode":"03","resultMsg":"NODATA_ERROR"},"body":{}}
+            """;
+        server.expect(requestToUriTemplate(
+                "https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius?serviceKey=test-key&cx={cx}&cy={cy}&radius={radius}&indsLclsCd={indsLclsCd}&numOfRows={numOfRows}&pageNo={pageNo}&type={type}",
+                127.0, 37.0, 300, "Q1", 1, 1, "json"))
+            .andExpect(method(GET))
+            .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        int count = client.countInRadiusByCategory(127.0, 37.0, 300, "Q1");
+
+        assertThat(count).isEqualTo(0);
     }
 
     @Test
     void 반경이_2000m를_넘으면_예외() {
-        assertThatThrownBy(() -> client.countSameCategoryInRadius(127.0, 37.0, 2001, "동물미용업"))
+        assertThatThrownBy(() -> client.countInRadiusByCategory(127.0, 37.0, 2001, "I2"))
             .isInstanceOf(IllegalArgumentException.class);
     }
 }

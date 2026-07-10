@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 public class SanggaApiClient {
 
     private static final int MAX_RADIUS_METERS = 2000;
-    private static final int NUM_OF_ROWS = 500;
 
     private final RestClient restClient;
     private final SanggaProperties properties;
@@ -21,7 +20,13 @@ public class SanggaApiClient {
         this.properties = properties;
     }
 
-    public int countSameCategoryInRadius(double lon, double lat, int radiusMeters, String subCategory) {
+    /**
+     * 반경 내 특정 상가 대분류(indsLclsCd)에 속하는 업소 수. 서버 측 indsLclsCd 필터를
+     * 써서 totalCount를 그대로 쓴다 — items를 받아 클라이언트에서 세지 않는다
+     * (`상권조회-API-명세.md` §2.2 "설계 변경 시사점" 반영). numOfRows=1로 최소 페이로드만
+     * 요청한다.
+     */
+    public int countInRadiusByCategory(double lon, double lat, int radiusMeters, String indsLclsCd) {
         if (radiusMeters > MAX_RADIUS_METERS) {
             throw new IllegalArgumentException("반경은 최대 " + MAX_RADIUS_METERS + "m까지입니다: " + radiusMeters);
         }
@@ -37,7 +42,8 @@ public class SanggaApiClient {
             + "&cx=" + lon
             + "&cy=" + lat
             + "&radius=" + radiusMeters
-            + "&numOfRows=" + NUM_OF_ROWS
+            + "&indsLclsCd=" + indsLclsCd
+            + "&numOfRows=1"
             + "&pageNo=1"
             + "&type=json");
 
@@ -46,11 +52,9 @@ public class SanggaApiClient {
             .retrieve()
             .body(SanggaStoreListResponse.class);
 
-        if (response == null || response.body() == null || response.body().items() == null) {
+        if (response == null || response.body() == null || response.body().totalCount() == null) {
             return 0;
         }
-        return (int) response.body().items().stream()
-            .filter(item -> subCategory.equals(item.indsSclsNm()))
-            .count();
+        return response.body().totalCount();
     }
 }
