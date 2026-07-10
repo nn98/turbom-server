@@ -1,6 +1,7 @@
 package com.nextstep.application;
 
 import com.nextstep.domain.market.MarketInfo;
+import com.nextstep.infra.sangga.IndustryCategoryMapper;
 import com.nextstep.infra.sangga.SanggaApiClient;
 import com.nextstep.infra.sangga.SanggaProperties;
 import org.springframework.cache.annotation.Cacheable;
@@ -24,8 +25,12 @@ public class MarketInfoService {
         if (lon == null || lat == null || sanggaProperties.serviceKey() == null || sanggaProperties.serviceKey().isBlank()) {
             return MarketInfo.unavailable();
         }
+        var sanggaCategoryCode = IndustryCategoryMapper.toSanggaCategoryCode(subCategory);
+        if (sanggaCategoryCode.isEmpty()) {
+            return MarketInfo.unavailable();
+        }
         try {
-            int count = sanggaApiClient.countSameCategoryInRadius(lon, lat, RADIUS_METERS, subCategory);
+            int count = sanggaApiClient.countInRadiusByCategory(lon, lat, RADIUS_METERS, sanggaCategoryCode.get());
             return MarketInfo.of(count);
         } catch (Exception e) {
             return MarketInfo.unavailable();
