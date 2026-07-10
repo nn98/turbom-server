@@ -81,8 +81,8 @@ class SiteControllerTest {
     void 자리상세는_폐업많은순으로_물건이_정렬된다() throws Exception {
         mockMvc.perform(get("/api/sites/4113110300100280001"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.site.latitude").value(org.hamcrest.Matchers.closeTo(37.441549006, 0.000001)))
-            .andExpect(jsonPath("$.site.longitude").value(org.hamcrest.Matchers.closeTo(127.134741725, 0.000001)))
+            .andExpect(jsonPath("$.site.latitude").value(org.hamcrest.Matchers.closeTo(37.441429604, 0.000001)))
+            .andExpect(jsonPath("$.site.longitude").value(org.hamcrest.Matchers.closeTo(127.134860655, 0.000001)))
             .andExpect(jsonPath("$.units[0].closedCount").value(4))
             .andExpect(jsonPath("$.disclaimer.note").exists());
     }

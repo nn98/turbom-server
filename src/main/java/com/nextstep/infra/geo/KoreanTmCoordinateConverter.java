@@ -27,6 +27,9 @@ public final class KoreanTmCoordinateConverter {
     private static final double TOWGS84_RY = Math.toRadians(2.347 / 3600.0);
     private static final double TOWGS84_RZ = Math.toRadians(1.592 / 3600.0);
     private static final double TOWGS84_SCALE = 1.0 + 6.342e-6;
+    private static final double TOWGS84_PX = -3159521.31;
+    private static final double TOWGS84_PY = 4068151.32;
+    private static final double TOWGS84_PZ = 3748113.85;
 
     private KoreanTmCoordinateConverter() {
     }
@@ -111,9 +114,12 @@ public final class KoreanTmCoordinateConverter {
     }
 
     private static Ecef toWgs84(Ecef source) {
-        double x = TOWGS84_DX + TOWGS84_SCALE * source.x() - TOWGS84_RZ * source.y() + TOWGS84_RY * source.z();
-        double y = TOWGS84_DY + TOWGS84_RZ * source.x() + TOWGS84_SCALE * source.y() - TOWGS84_RX * source.z();
-        double z = TOWGS84_DZ - TOWGS84_RY * source.x() + TOWGS84_RX * source.y() + TOWGS84_SCALE * source.z();
+        double offsetX = source.x() - TOWGS84_PX;
+        double offsetY = source.y() - TOWGS84_PY;
+        double offsetZ = source.z() - TOWGS84_PZ;
+        double x = TOWGS84_PX + TOWGS84_DX + TOWGS84_SCALE * offsetX + TOWGS84_RZ * offsetY - TOWGS84_RY * offsetZ;
+        double y = TOWGS84_PY + TOWGS84_DY - TOWGS84_RZ * offsetX + TOWGS84_SCALE * offsetY + TOWGS84_RX * offsetZ;
+        double z = TOWGS84_PZ + TOWGS84_DZ + TOWGS84_RY * offsetX - TOWGS84_RX * offsetY + TOWGS84_SCALE * offsetZ;
         return new Ecef(x, y, z);
     }
 
