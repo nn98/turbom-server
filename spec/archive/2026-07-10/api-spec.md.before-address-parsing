@@ -82,17 +82,14 @@
   "units": [
     {
       "unitId": "4113310300104050001-U1",
-      "label": "115-4호",
+      "label": "1층 101호",
       "currentBusinessName": "치킨나라",
       "currentStatus": "영업",
       "totalTenancyCount": 5,
       "closedCount": 4,
       "averageSurvivalMonths": 27,
       "industryDetail": "후라이드/양념치킨",
-      "locationSource": "sangga_api",
-      "parsedFloor": null,
-      "parsedUnitNo": "115-4",
-      "parseConfidence": "HIGH"
+      "locationSource": "sangga_api"
     }
   ],
   "disclaimer": {
@@ -107,7 +104,7 @@
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | unitId | string | 물건 키 |
-| label | string | **[변경]** 아래 "label 산출 규칙" 참고 |
+| label | string | 상세주소 있으면 그 값, 없으면 `물건 A`, 단일이면 `단일 점포` |
 | currentBusinessName | string\|null | 현재 영업 가게명(공실이면 null) |
 | currentStatus | `영업`\|`공실` | |
 | totalTenancyCount | number | 거쳐간 가게 수 |
@@ -115,23 +112,9 @@
 | averageSurvivalMonths | number\|null | 폐업 이력만 평균 |
 | industryDetail | string\|null | 세부 업종(상가API indsSclsNm). 공실·보강실패 시 null |
 | locationSource | `"license"`\|`"sangga_api"`\|`"overlap_inferred"` | label 출처 |
-| parsedFloor | string\|null | **[신규]** 도로명주소 상세에서 파싱한 층수(예: `"1"`, `"B1"`). 없으면 null |
-| parsedUnitNo | string\|null | **[신규]** 파싱한 호수(예: `"115-4"`, `"202"`). 없으면 null |
-| parseConfidence | `"HIGH"`\|`"LOW"`\|null | **[신규]** 파싱 신뢰도. `HIGH`만 `label`·`parsedFloor`·`parsedUnitNo` 조합을 신뢰 가능. `LOW`는 정규식이 상세주소 패턴을 못 잡아 원본을 보존만 한 상태 — 화면에 별도 뱃지/구분 없이 그대로 쓰면 부정확한 값으로 오인될 수 있음 |
 
 - pnu 없음: 404 `SITE_NOT_FOUND`
 - units 정렬: 폐업 많은 순.
-
-### `label` 산출 규칙 (2026-07-10 변경 — 상세주소 오프라인 파싱 반영)
-
-- 도로명주소의 상세 부분(콤마~괄호 사이, 예: "성남대로 151, **분당엠코헤리츠 115-4호** (구미동)")을 `AddressDetailParser`로 미리 파싱해 `data.sql`에 `parsed_*` 컬럼으로 구워 넣고, `label`은 그 컬럼 값을 조합해 만든다 — 응답 시점 실시간 정규식 파싱은 더 이상 하지 않는다(런타임 비용 0).
-- 조합 규칙은 `parseConfidence == "HIGH"`일 때만 적용:
-  1. `parsedUnitNo`가 있으면 `(parsedFloor + "층 " if parsedFloor else "") + parsedUnitNo + "호"` (예: `"115-4호"`, `"1층 202호"`)
-  2. `parsedUnitNo`는 없고 `parsedFloor`만 있으면 `parsedFloor + "층"`
-  3. 층/호 정보가 전혀 없고 건물명만 파싱됐으면 건물명 문자열 그대로(단, 건물명 자체는 별도 필드로 응답에 노출되지 않음 — `label`에만 반영)
-- `parseConfidence`가 `"LOW"`이거나 null이면(파싱 실패·원본 패턴 미매칭) 위 조합을 시도하지 않고 항상 `"단일 점포"`로 표시한다 — 기존에 존재하던 "괄호가 먼저 나오면 층 정보가 통째로 유실되는" 버그(예: "1(일부)층" 패턴)도 이번에 같이 수정됨.
-- 실측 데이터(47,532건) 기준 `parseConfidence` 분포: `HIGH` 89.2%, `LOW` 10.8%.
-- **프론트 반영 권장**: `parseConfidence`가 `LOW`인 물건은 `label`이 무조건 `"단일 점포"`로만 내려오므로, 상세 위치 정보를 더 정확히 보여주고 싶다면 물건 상세 화면(③)에서 `jibunAddress`/`roadAddress` 원문을 함께 노출하는 걸 권장. `HIGH`인 경우에만 `parsedFloor`/`parsedUnitNo` 배지를 별도로 붙이는 것도 가능.
 
 ---
 
@@ -142,12 +125,9 @@
 {
   "unit": {
     "unitId": "4113310300104050001-U1",
-    "label": "115-4호",
+    "label": "1층 101호",
     "jibunAddress": "경기도 성남시 수정구 금토동 405-1",
-    "roadAddress": "경기도 성남시 수정구 대왕판교로 815",
-    "parsedFloor": null,
-    "parsedUnitNo": "115-4",
-    "parseConfidence": "HIGH"
+    "roadAddress": "경기도 성남시 수정구 대왕판교로 815"
   },
   "statistics": {
     "totalTenancyCount": 5,
@@ -210,14 +190,6 @@
   }
 }
 ```
-
-### `unit` 필드 (신규 부분)
-
-| 필드 | 타입 | 설명 |
-|---|---|---|
-| parsedFloor | string\|null | **[신규]** ②와 동일. `parseConfidence`가 `HIGH`일 때만 신뢰 가능 |
-| parsedUnitNo | string\|null | **[신규]** ②와 동일 |
-| parseConfidence | `"HIGH"`\|`"LOW"`\|null | **[신규]** ②의 "label 산출 규칙" 참고 |
 
 ### `timeline[]` 필드 (신규 부분)
 

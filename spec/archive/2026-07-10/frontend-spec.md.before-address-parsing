@@ -68,13 +68,11 @@ interface SearchResponse { candidates: Candidate[]; }
 interface Disclaimer { dataAsOf: string; note: string; }
 
 type LocationSource = "license" | "sangga_api" | "overlap_inferred";
-type ParseConfidence = "HIGH" | "LOW" | null;
 interface UnitSummary {
   unitId: string; label: string;
   currentBusinessName: string|null; currentStatus: "영업"|"공실";
   totalTenancyCount: number; closedCount: number; averageSurvivalMonths: number|null;
   industryDetail: string|null; locationSource: LocationSource;
-  parsedFloor: string|null; parsedUnitNo: string|null; parseConfidence: ParseConfidence; // [신규] 2026-07-10
 }
 interface SiteDetail {
   site: { pnu: string; jibunAddress: string; roadAddress: string; latitude: number|null; longitude: number|null; };
@@ -105,8 +103,7 @@ interface Tenancy {
   marketInfo: MarketInfo;
 }
 interface UnitDetail {
-  unit: { unitId: string; label: string; jibunAddress: string; roadAddress: string;
-    parsedFloor: string|null; parsedUnitNo: string|null; parseConfidence: ParseConfidence; }; // [신규] 2026-07-10
+  unit: { unitId: string; label: string; jibunAddress: string; roadAddress: string; };
   statistics: Statistics; timeline: Tenancy[]; disclaimer: Disclaimer;
 }
 
@@ -128,9 +125,9 @@ interface ApiError { error: string; message: string; }
 {
   "site": { "pnu": "4113310300104050001", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815", "latitude": 37.4012, "longitude": 127.1045 },
   "units": [
-    { "unitId": "4113310300104050001-U1", "label": "1층 101호", "currentBusinessName": "치킨나라", "currentStatus": "영업", "totalTenancyCount": 5, "closedCount": 4, "averageSurvivalMonths": 27, "industryDetail": "후라이드/양념치킨", "locationSource": "sangga_api", "parsedFloor": "1", "parsedUnitNo": "101", "parseConfidence": "HIGH" },
-    { "unitId": "4113310300104050001-U2", "label": "2층 201호", "currentBusinessName": null, "currentStatus": "공실", "totalTenancyCount": 3, "closedCount": 3, "averageSurvivalMonths": 14, "industryDetail": null, "locationSource": "overlap_inferred", "parsedFloor": "2", "parsedUnitNo": "201", "parseConfidence": "HIGH" },
-    { "unitId": "4113310300104050001-U3", "label": "1층 102호", "currentBusinessName": "파리바게뜨", "currentStatus": "영업", "totalTenancyCount": 2, "closedCount": 1, "averageSurvivalMonths": 60, "industryDetail": "제과점", "locationSource": "sangga_api", "parsedFloor": "1", "parsedUnitNo": "102", "parseConfidence": "HIGH" }
+    { "unitId": "4113310300104050001-U1", "label": "1층 101호", "currentBusinessName": "치킨나라", "currentStatus": "영업", "totalTenancyCount": 5, "closedCount": 4, "averageSurvivalMonths": 27, "industryDetail": "후라이드/양념치킨", "locationSource": "sangga_api" },
+    { "unitId": "4113310300104050001-U2", "label": "2층 201호", "currentBusinessName": null, "currentStatus": "공실", "totalTenancyCount": 3, "closedCount": 3, "averageSurvivalMonths": 14, "industryDetail": null, "locationSource": "overlap_inferred" },
+    { "unitId": "4113310300104050001-U3", "label": "1층 102호", "currentBusinessName": "파리바게뜨", "currentStatus": "영업", "totalTenancyCount": 2, "closedCount": 1, "averageSurvivalMonths": 60, "industryDetail": "제과점", "locationSource": "sangga_api" }
   ],
   "disclaimer": { "dataAsOf": "2026-07-04", "note": "인허가 신고 기준 데이터로 실제 영업 현황과 차이가 있을 수 있습니다." }
 }
@@ -140,7 +137,7 @@ interface ApiError { error: string; message: string; }
 {
   "site": { "pnu": "4113310300104050003", "jibunAddress": "경기도 성남시 수정구 금토동 405-3", "roadAddress": "경기도 성남시 수정구 대왕판교로 817", "latitude": 37.4015, "longitude": 127.1050 },
   "units": [
-    { "unitId": "4113310300104050003-U1", "label": "단일 점포", "currentBusinessName": null, "currentStatus": "공실", "totalTenancyCount": 3, "closedCount": 3, "averageSurvivalMonths": 9, "industryDetail": null, "locationSource": "license", "parsedFloor": null, "parsedUnitNo": null, "parseConfidence": "LOW" }
+    { "unitId": "4113310300104050003-U1", "label": "단일 점포", "currentBusinessName": null, "currentStatus": "공실", "totalTenancyCount": 3, "closedCount": 3, "averageSurvivalMonths": 9, "industryDetail": null, "locationSource": "license" }
   ],
   "disclaimer": { "dataAsOf": "2026-07-04", "note": "인허가 신고 기준 데이터로 실제 영업 현황과 차이가 있을 수 있습니다." }
 }
@@ -150,7 +147,7 @@ interface ApiError { error: string; message: string; }
 
 ```json
 {
-  "unit": { "unitId": "4113310300104050001-U1", "label": "1층 101호", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815", "parsedFloor": "1", "parsedUnitNo": "101", "parseConfidence": "HIGH" },
+  "unit": { "unitId": "4113310300104050001-U1", "label": "1층 101호", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815" },
   "statistics": { "totalTenancyCount": 5, "closedCount": 4, "averageSurvivalMonths": 27, "longestSurvivalMonths": 44, "shortestSurvivalMonths": 11 },
   "timeline": [
     { "tenancyId": "t-1001", "businessName": "고기굽는집", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2013-05-02", "closedAt": "2017-01-10", "status": "폐업", "survivalMonths": 44, "closedAtEstimated": false, "enrichmentSource": "license_only",
@@ -170,7 +167,7 @@ interface ApiError { error: string; message: string; }
 
 ```json
 {
-  "unit": { "unitId": "4113310300104050001-U2", "label": "2층 201호", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815", "parsedFloor": "2", "parsedUnitNo": "201", "parseConfidence": "HIGH" },
+  "unit": { "unitId": "4113310300104050001-U2", "label": "2층 201호", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815" },
   "statistics": { "totalTenancyCount": 3, "closedCount": 3, "averageSurvivalMonths": 14, "longestSurvivalMonths": 20, "shortestSurvivalMonths": 8 },
   "timeline": [
     { "tenancyId": "t-2001", "businessName": "호프하우스", "category": "음식", "subCategory": "단란주점", "industryDetail": null, "licensedAt": "2019-02-01", "closedAt": "2020-10-01", "status": "폐업", "survivalMonths": 20, "closedAtEstimated": false, "enrichmentSource": "license_only",
@@ -186,7 +183,7 @@ interface ApiError { error: string; message: string; }
 
 ```json
 {
-  "unit": { "unitId": "4113310300104050001-U3", "label": "1층 102호", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815", "parsedFloor": "1", "parsedUnitNo": "102", "parseConfidence": "HIGH" },
+  "unit": { "unitId": "4113310300104050001-U3", "label": "1층 102호", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815" },
   "statistics": { "totalTenancyCount": 2, "closedCount": 1, "averageSurvivalMonths": 60, "longestSurvivalMonths": 60, "shortestSurvivalMonths": 60 },
   "timeline": [
     { "tenancyId": "t-3001", "businessName": "김밥천국", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2013-01-05", "closedAt": "2018-01-05", "status": "폐업", "survivalMonths": 60, "closedAtEstimated": false, "enrichmentSource": "license_only",
@@ -200,7 +197,7 @@ interface ApiError { error: string; message: string; }
 
 ```json
 {
-  "unit": { "unitId": "4113310300104050003-U1", "label": "단일 점포", "jibunAddress": "경기도 성남시 수정구 금토동 405-3", "roadAddress": "경기도 성남시 수정구 대왕판교로 817", "parsedFloor": null, "parsedUnitNo": null, "parseConfidence": "LOW" },
+  "unit": { "unitId": "4113310300104050003-U1", "label": "단일 점포", "jibunAddress": "경기도 성남시 수정구 금토동 405-3", "roadAddress": "경기도 성남시 수정구 대왕판교로 817" },
   "statistics": { "totalTenancyCount": 3, "closedCount": 3, "averageSurvivalMonths": 9, "longestSurvivalMonths": 12, "shortestSurvivalMonths": 6 },
   "timeline": [
     { "tenancyId": "t-4001", "businessName": "무한리필고기", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2020-01-01", "closedAt": "2021-01-01", "status": "폐업", "survivalMonths": 12, "closedAtEstimated": false, "enrichmentSource": "license_only",

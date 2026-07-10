@@ -10,6 +10,17 @@
 
 ## 이력
 
+### 2026-07-10 (10차) — 도로명주소 상세 오프라인 파싱 반영 (`api-spec.md`·`schema.sql`)
+
+`units[]`/`unit` 응답의 `label`이 응답 시점 실시간 정규식(`TenancyQueryService.unitLabel(String)`)으로 만들어지고 있었는데, 버그(괄호가 먼저 나오면 층 정보가 통째로 유실 — 예: "1(일부)층") 및 낮은 커버리지(건물명 단독·"일부" 수식어 케이스 다수가 "단일 점포"로 뭉뚱그려짐)가 확인됨.
+
+- **아키텍처 결정**: 런타임 파싱 대신 `data.sql`을 오프라인 1회성으로 재생성해 `parsed_building_name`/`parsed_floor`/`parsed_unit_no`/`parse_confidence`/`parse_method` 5개 컬럼을 데이터셋 자체에 영속화(런타임 비용 0). 신규 파서 `AddressDetailParser`(순수 자바, 단위테스트 12건), 재생성 도구 `AddressDatasetRegenerator`(`src/main/java/com/nextstep/tools/`, `main()` 독립 실행) 추가
+- **실측 결과**(47,532건 전체 재생성 후 검증): `parse_confidence` `HIGH` 89.2%(42,421건) / `LOW` 10.8%(5,111건). `parse_method` `REGEX` 81.2% / `UNPARSED` 10.8% / `NONE`(애초에 상세주소 없음) 8.1%
+- `TenancyQueryService.unitLabel()`을 영속 컬럼 기반 조합 로직으로 교체(정규식 완전 제거, 버그 자동 해소) — `parseConfidence != "HIGH"`면 항상 `"단일 점포"` 폴백
+- `schema.sql`에 5개 컬럼 추가, `units[]`(②)와 `unit`(③) 응답에 `parsedFloor`/`parsedUnitNo`/`parseConfidence` 3개 필드 신규 노출. `api-spec.md`에 "label 산출 규칙" 절 추가
+- `frontend-spec.md` 타입(`UnitSummary`/`UnitDetail.unit`)·목데이터 7블록에 3개 필드 반영, `backend-spec.md` §3.2 Unit 도메인모델에 근거·참조 추가 — 스펙 4개 교차 정합성 확인 완료
+- 수정 전 스냅샷: `spec/archive/2026-07-10/{api-spec,frontend-spec,backend-spec}.md.before-address-parsing`
+
 ### 2026-07-10 (9차) — `schema.sql` 멱등화 (다중 테스트 컨텍스트 DB 공유 충돌 수정)
 
 `server` 백엔드에서 `mvn test` 전체 스위트 실행 시 `SiteControllerTest`(`@SpringBootTest`+`@AutoConfigureMockMvc`)가 `Table "SITE" already exists`로 실패하는 문제 발견. 원인: `application.yml`이 이름 있는 인메모리 H2(`jdbc:h2:mem:nextstep;DB_CLOSE_DELAY=-1`)를 쓰는데, 애노테이션 조합이 다른 `SiteControllerTest`와 `TenancyQueryServiceTest`가 Spring에서 서로 다른 ApplicationContext로 뜨면서 같은 이름의 DB를 공유함. `DB_CLOSE_DELAY=-1`이 DB를 계속 살려두므로, 두 번째 컨텍스트가 뜰 때 `spring.sql.init.mode: always`가 `schema.sql`을 재실행하다가 이미 존재하는 테이블과 충돌. 자식→부모 역순 `DROP TABLE IF EXISTS ... CASCADE` 4줄을 파일 맨 앞에 추가해 재실행에 멱등하도록 수정(테이블 정의·인덱스는 무변경). `server/src/main/resources/schema.sql`에 동일 수정 반영, `mvn test` 전체 재통과 확인. 수정 전 스냅샷: `spec_before/schema-2026-07-10-before-idempotent-drop.sql`.

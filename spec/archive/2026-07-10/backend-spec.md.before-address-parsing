@@ -94,16 +94,14 @@ Site
 ```
 Unit
 - unitId: UnitId              // {pnu}-U{seq}
-- label: UnitLabel            // 영속 parsed_* 컬럼 조합(HIGH) or "단일 점포"(LOW/미매칭)
+- label: UnitLabel            // 호실단위주소 or "물건 A" or "단일 점포"
 - locationSource: LocationSource   // LICENSE | SANGGA_API | OVERLAP_INFERRED
 - tenancies: List<Tenancy>
 - statistics: UnitStatistics  // 파생, 아래 계산 규칙
-- parsedFloor / parsedUnitNo / parseConfidence: String?  // 2026-07-10 신규, licensed_business_record 영속 컬럼 그대로 전달
 ```
 
 - `LocationSource` 우선순위: **LICENSE 최상위** — 인허가의 `주소분리여부='Y'`가 있으면 관청이 이미 구분한 것이므로 가장 신뢰. 그다음 SANGGA_API(상가 API 층/호 매칭), 최후 OVERLAP_INFERRED(영업기간 겹침 추정).
 - **주의**: 실 19컬럼 데이터셋 실측 결과 `주소분리여부`는 **전부 false**로 확인됨(`인허가-데이터-필드명세-v4.md` §3 — 지번주소 문자열에 "201호"·"2층"이 있어도 값이 false, 신뢰 불가). 즉 LICENSE 분기는 우선순위상 최상위지만 실데이터에서는 사실상 발동하지 않는다 — 구현 시 이 분기가 "죽은 코드"처럼 보여도 정상이며, 실제 물건분리는 대부분 SANGGA_API 또는 OVERLAP_INFERRED로 떨어진다는 걸 전제하고 작업할 것. (이전 판(v2 데이터셋, 36컬럼)엔 `호실분리여부`+`호실단위지번주소`라는 별도 필드가 있었으나 현재 19컬럼 데이터셋엔 존재하지 않음 — 용어 혼용 금지)
-- **`label` 산출 (2026-07-10 변경)**: `roadAddress`의 상세주소 부분(콤마~괄호 사이)을 `AddressDetailParser`가 오프라인으로 미리 파싱해 `data.sql`에 `parsed_building_name`/`parsed_floor`/`parsed_unit_no`/`parse_confidence`/`parse_method` 5개 컬럼으로 구워 넣는다(`src/main/java/com/nextstep/tools/AddressDatasetRegenerator.java`, 재생성 필요 시 재실행). 런타임에는 이 컬럼을 읽어 조합만 하고 정규식은 실행하지 않는다 — 실측(47,532건) `parse_confidence` HIGH 89.2% / LOW 10.8%. 상세는 `api-spec.md`의 "label 산출 규칙" 절 참고.
 
 ### 3.3 Tenancy (이력)
 
