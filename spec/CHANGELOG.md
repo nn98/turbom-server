@@ -10,6 +10,21 @@
 
 ## 이력
 
+### 2026-07-10 (12차) — backend-spec.md·schema.sql을 실제 구현과 동기화 (구현 변경 없음, 문서만)
+
+11차까지 코드는 계속 앞서갔는데 `backend-spec.md`/`schema.sql`이 못 따라간 부분을 전수 점검해 정정. 사용자 요청("작업내용 싹 반영해서 스펙 최신화")에 따른 문서 전용 커밋:
+
+- **`schema.sql`**: `parsed_building_name`/`parsed_floor`/`parsed_unit_no`/`parse_confidence`/`parse_method` 5개 컬럼이 실제 `server/src/main/resources/schema.sql`엔 있는데 캐노니컬 스펙엔 누락돼 있었음 — 실 파일을 그대로 복사해 완전 동일화(컬럼 순서까지)
+- **`backend-spec.md` §2 레이어 구조**: `SangaApiClient`(오타, g 하나)를 `SanggaApiClient`로 전체 정정. `IndustryCategoryMapper`/`SanggaRestClientConfig` 신규 컴포넌트 반영
+- **`backend-spec.md` §3.5 MarketInfo 모델**: `totalStoreCount`/`categoryBreakdown`(11차分) 반영, 목업 필드 수 6→"5필드+공실률"로 정정(원래도 6개였는데 서술이 실수로 뭉뚱그려져 있었음)
+- **`backend-spec.md` §4.2 상권 조회 파이프라인 — 가장 큰 정정**: 문서가 "소분류코드(`indsSclsCd`)로 서버 필터링"이라고 서술하고 있었는데, **실제 구현은 다르다** — 소분류-대분류 공식 매핑표가 없어 브레인스토밍 때 보류됐던 걸, 이후 상가API를 직접 샘플링해 대분류코드 10종을 확보하고 `IndustryCategoryMapper`로 소분류 136종을 수동 매핑해 **대분류코드(`indsLclsCd`)** 기준으로 확정한 사실이 문서에 전혀 반영 안 돼 있었음. 전체점포수·업종구성 호출 추가, "최근개업수(`chgGb`/`chgDt`) 필드가 실응답엔 없음" 확인 결과, 서비스키 URL 인코딩 버그(401 원인)와 수정 내용도 반영
+- **`backend-spec.md` §7 스택**: Java 17→21, "로컬 H2(파일)"→"로컬 H2(인메모리, 파일모드는 재기동 크래시 버그로 폐기)" 정정. Railway/Postgres 전환 시 `sql.init.mode: always`+멱등 DROP 조합이 운영 데이터를 매 재기동마다 지운다는 위험을 신규 경고로 추가(최종 전체 리뷰에서 나온 지적, 지금까지 문서에 없었음)
+- **`backend-spec.md` §10 착수순서**: 번호 중복(6번이 두 번) 수정, 전 단계 완료 체크(✅) 표시로 현재 상태 명시
+- 수정 전 스냅샷: `spec/archive/2026-07-10/backend-spec.md.before-market-breakdown`, `spec/archive/2026-07-10/schema.sql.before-address-parsing-sync`
+- **알려진 한계**: 이 동기화는 `server/spec/`(이 저장소 안의 스펙 사본)에만 적용됨. 루트(`D:\...\woowaTon\spec\`)의 별도 사본은 git 미관리라 이번 커밋에 포함 안 됐고, 이미 두 사본이 갈라지기 시작한 상태로 보임 — 다음에 정합성 재점검 필요
+- 상권조회-API-명세.md(chgGb/chgDt 필드 오류)는 이 저장소에 사본이 없어 정정 못 함 — 루트 사본에서 처리 필요(11차에 이미 기록됨, 아직 미착수)
+- **`frontend-spec.md`도 함께 정리**: `MarketInfo` 타입에 `totalStoreCount`/`categoryBreakdown`(+ `CategoryCount` 타입) 추가, mock JSON 13곳 전부 새 필드 추가(값은 `null`/`[]` — mock은 UI 레이아웃 예시 목적이라 실제 상권 데이터를 지어내지 않음, 실제 응답 예시는 `api-spec.md` 참고). ③ 물건 상세 섹션에 업종 선택 UI 가이드(선택 구현) 한 단락 추가. **주의**: 이 파일은 프론트 담당이 이번 세션 중에도 계속 수정하고 있던 파일이라 병합 시 재확인 필요 — 이번 수정은 필드 추가만이라 구조 충돌 가능성은 낮음. 스냅샷은 뒤늦게(수정 후) git HEAD 기준으로 남김: `spec/archive/2026-07-10/frontend-spec.md.before-market-breakdown`
+
 ### 2026-07-10 (11차) — marketInfo에 전체점포수·업종구성 추가 (`api-spec.md`)
 
 `timeline[].marketInfo`가 `sameCategoryNearbyCount` 하나뿐이라 "동일업종 몇 곳" 말고는 상권 정보가 빈약하다는 지적(사용자 확정)에 따라 실제 상가API 반경조회에서 더 뽑아낼 값이 있는지 재조사:

@@ -35,7 +35,7 @@
               ┌─────────────▼──────────┐  ┌─────────▼───────────────────┐
               │  개폐업 조회 (DB)       │  │  상권 조회 (외부 API 실시간) │
               │  TenancyQueryService   │  │  MarketInfoService          │
-              │  → JPA Repository      │  │  → SanggaApiClient (HTTP)    │
+              │  → JPA Repository      │  │  → SangaApiClient (HTTP)    │
               │  → PostgreSQL          │  │  → 소상공인 상가정보 API     │
               │  [읽기 전용, 빠름]      │  │  [네트워크, 느림, 실패 가능] │
               └────────────────────────┘  └─────────────────────────────┘
@@ -68,8 +68,7 @@ com.nextstep
 └── infra
     ├── persistence/  JPA 엔티티·리포지토리 (개폐업 조회)
     ├── geo/          EPSG:5174 → WGS84 좌표변환
-    └── sangga/       SanggaApiClient(HTTP), SanggaRestClientConfig(타임아웃),
-                      IndustryCategoryMapper(소분류→상가 대분류코드), 응답 매핑
+    └── sangga/       SangaApiClient, 응답 매핑 (상권 호출)
 ```
 
 의존 방향: web → application → domain ← infra. domain은 Spring·JPA·HTTP 전부 비의존(순수 자바). MarketInfo는 외부에서 왔지만 domain에 그 개념(값객체)만 두고, 실제 호출은 infra.sangga가 담당.
@@ -141,24 +140,14 @@ UnitStatistics (Unit의 tenancies로부터 계산)
 
 ```
 MarketInfo
-- sameCategoryNearbyCount: Int?          // 상가 API 반경조회(대분류 필터) 결과
-- totalStoreCount: Int?                  // [2026-07-10 추가] 같은 반경, 업종 필터 없는 전체 점포수
-- categoryBreakdown: List<CategoryCount> // [2026-07-10 추가] 상가 대분류별 점포수·비중
-- placeholderFields: 목업 5필드           // 전용면적·보증금·월세·권리금·유동인구
-- vacancyRatePercent                     // 목업(공실률) — 위 5필드와 같은 목업군
+- sameCategoryNearbyCount: Int?   // 상가 API 반경조회 결과 (유일한 실값)
+- placeholderFields: 목업 6필드    // 전용면적·보증금·월세·권리금·유동인구·공실률
 - isPlaceholder: true (항상)
 - asOf: LocalDate
-
-CategoryCount
-- code: String    // 상가 대분류 코드 (예: I2)
-- name: String    // 상가 대분류 이름 (예: 음식)
-- count: Int
-- ratio: Double   // count / totalStoreCount, 0~1
 ```
 
-- `sameCategoryNearbyCount`/`totalStoreCount`/`categoryBreakdown` 셋 다 외부 API 실값이지만 **각각 독립 호출**이라 하나만 실패할 수 있다(실패한 것만 null/빈 배열). 목업 6필드(전용면적·보증금·월세·권리금·유동인구·공실률)는 소스 없어 계속 상수(`의사결정-기록.md` 6장).
-- `categoryBreakdown`은 업종 필터 없이 반경조회(`numOfRows=500`)한 응답의 `items[].indsLclsCd`를 집계한 것 — 500건 넘는 초밀집 반경에서는 근사치(우리 반경 300m에서는 실측상 그런 사례 없음). `ratio`는 API가 안 주는 파생값, `totalStoreCount`로 나눠 애플리케이션에서 계산.
-- domain엔 값객체로만 존재. 실제 API 호출·매핑은 infra.sangga, 집계(카운트→비중 계산)는 application.MarketInfoService.
+- `sameCategoryNearbyCount`만 외부 API 실값, 실패 시 null. 나머지는 소스 없어 목업(별도 조사로 확정됨, `의사결정-기록.md` 6장).
+- domain엔 값객체로만 존재. 실제 API 호출·매핑은 infra.sangga.
 
 ## 4. 두 파이프라인의 명확한 분리 ★
 
@@ -182,26 +171,20 @@ CategoryCount
 ### 4.2 상권 조회 파이프라인 (외부 API, 실시간)
 
 ```
-PNU + 좌표 + 대상 업종(우리 소분류, 예: 일반음식점)
-  → MarketInfoService.fetch(pnu, lon, lat, subCategory)
-    → IndustryCategoryMapper.toSanggaCategoryCode(subCategory)  // 소분류 → 상가 대분류코드
-      [매핑 없으면 즉시 MarketInfo.unavailable() — API 호출 자체를 안 함]
-    → SanggaApiClient.countInRadiusByCategory(lon, lat, radius=300, indsLclsCd)
-      [HTTP 호출 1, storeListInRadius(#10) — storeZoneInRadius(#2)와 혼동 금지]
-    → SanggaApiClient.fetchRadiusSummary(lon, lat, radius=300)   // 업종 필터 없음, numOfRows=500
-      [HTTP 호출 2, 독립적으로 try-catch — 실패해도 위 호출 결과는 유지]
-    → MarketInfo 값객체 조립 (sameCategoryNearbyCount + totalStoreCount + categoryBreakdown + 목업 6)
-  → 반환 (실패한 필드만 null/빈 배열인 MarketInfo)
+PNU + 좌표 + 대상 업종(소분류코드)
+  → MarketInfoService.fetch(pnu, coordinate, indsSclsCd)
+    → SangaApiClient.fetchRadiusSameCategoryCount(cx, cy, radius=300, indsSclsCd)
+      [HTTP 호출, storeListInRadius(#10) — storeZoneInRadius(#2)와 혼동 금지]
+    → 서버가 indsSclsCd로 이미 필터링한 응답의 totalCount를 그대로 사용
+    → MarketInfo 값객체 조립 (실값 1 + 목업 6)
+  → 반환 (실패 시 sameCategoryNearbyCount=null인 MarketInfo)
 ```
 
-- **최초 설계와의 차이(2026-07-10 최종 확정)**: 애초 계획은 우리 소분류를 상가API의 **소분류코드**(`indsSclsCd`)에 매핑해 서버 필터링하는 것이었으나, 두 체계(인허가 소분류 136종 vs 상가API 소분류 247종)의 공식 매핑표가 없어 브레인스토밍 단계에서 보류됐다. 이후 상가API를 직접 샘플링해 **대분류코드 10종**(G2 소매·I1 숙박·I2 음식·L1 부동산·M1 과학·기술·N1 시설관리·임대·P1 교육·Q1 보건의료·R1 예술·스포츠·S2 수리·개인)을 확보하고, 우리 소분류 136종을 이 10종에 손수 매핑(`IndustryCategoryMapper`, 도축업·제조업·도매업처럼 "상가 상권" 개념이 없는 소분류는 매핑하지 않음)해 **대분류코드**(`indsLclsCd`) 기준 서버 필터링으로 확정했다. 소분류 매핑보다 거칠지만(대분류 단위), 매핑표 없이 정확히 일치시킬 방법이 없던 소분류 방식보다 실질적으로 더 유용하다.
-- **전체점포수·업종구성 추가(2026-07-10)**: `sameCategoryNearbyCount` 하나만으로는 상권 정보가 빈약하다는 지적에 따라, 같은 반경을 업종 필터 없이 한 번 더 조회(`numOfRows=500`)해 `totalCount`(전체점포수)와 `items[].indsLclsCd` 집계(업종구성, `ratio`는 파생 계산)를 추가했다. 이 두 값은 `sameCategoryNearbyCount`와 별개 호출·별개 try-catch라 부분 실패 가능.
-- **"최근개업수" 확인 결과(2026-07-10, 불가로 확정)**: `상권조회-API-명세.md`가 응답 필드로 명시한 `chgGb`(변경구분)/`chgDt`(변경일자)를 실API 응답 39개 필드 전수 확인했으나 **존재하지 않았다**. 그 문서 자체가 부정확했던 것으로 보임(정정 필요, 미착수) — storeListInRadius로는 최근 개업 여부를 알 수 없다는 게 최종 결론이고, 앞으로도 이 필드를 시도하지 말 것.
+- **정정(공식 활용가이드 hwp 원문 확인, `상권조회-API-명세.md` 참조)**: 클라이언트에서 응답 items를 받아 `indsSclsNm == category`로 하나씩 비교하는 방식이 아니라, 요청 시점에 `indsSclsCd` 파라미터로 **서버 측 필터링**을 걸고 그 결과의 `totalCount`를 그대로 쓴다. `numOfRows=1`로 최소 페이로드만 요청 — 개별 item 파싱조차 불필요. 정확도(서버가 필터링하므로 클라이언트 로직 버그 여지 없음)와 성능(응답 크기 최소화) 둘 다 이득.
 - 오퍼레이션 이름 함정: "반경내 상권조회"(`storeZoneInRadius`, #2)는 상권 폴리곤 경계 데이터를 주는 **다른 오퍼레이션**. 우리가 쓰는 건 "반경내 상가업소조회"(`storeListInRadius`, #10).
 - radius 상한 2000m(공식 문서 명시). 우리 고정값 300m는 여유 있음.
-- 외부 HTTP. 커넥트 2초/리드 3초 타임아웃(`SanggaRestClientConfig`, `RestClientCustomizer`로 자동구성 빌더에 적용 — 느린 응답이 요청 스레드를 오래 붙잡는 걸 방지), 실패 시 예외 삼키고 null 반환.
-- **캐싱**: 같은 PNU+업종에 대한 조회 결과는 `@Cacheable("sameCategoryNearbyCount")`로 짧게 캐시(인메모리 Caffeine TTL 10분). 요청마다 외부 API를 때리면 쿼터(개발계정 일 1,000건) 소진.
-- **서비스키 인코딩 주의**: 서비스키는 base64 계열이라 `+`/`/`/`=`를 포함한다. Spring `RestClient`의 기본 URI 빌더는 RFC 3986 기준 `+`를 인코딩하지 않지만 data.go.kr은 `+`를 공백으로 해석해 키가 깨진다(401) — `URLEncoder`로 직접 인코딩한 뒤 이미 인코딩된 `URI`로 요청해야 한다(`SanggaApiClient` 참고).
+- 외부 HTTP. 타임아웃(예: 3초), 재시도(2회), 실패 시 예외 삼키고 null 반환.
+- **캐싱**: 같은 PNU+업종에 대한 반경조회 결과는 짧게 캐시(예: 인메모리 TTL 10분). 요청마다 외부 API를 때리면 쿼터(개발계정 일 1,000건) 소진.
 - 이 파이프라인의 실패는 **절대 개폐업 조회를 막지 않는다**.
 
 ### 4.3 두 파이프라인의 조합 (SiteQueryService)
@@ -251,14 +234,12 @@ SiteQueryService.getSiteDetail(pnu):
 
 ## 7. 스택·배포
 
-- Java 21, Maven, Spring Boot 3.3.4, Spring Web, Spring Data JPA
-- DB: PostgreSQL(Railway, 아직 미배포). 로컬은 H2 **인메모리**(`jdbc:h2:mem:nextstep;DB_CLOSE_DELAY=-1`) — 처음엔 파일모드였으나 `sql.init.mode: always`와 조합해 재기동·복수 테스트 컨텍스트에서 "table already exists"로 깨지는 문제가 있어 인메모리로 전환(매 기동 재시딩이 목적에 더 맞음). `schema.sql`도 `DROP TABLE IF EXISTS ... CASCADE`로 멱등하게 만들어둠
-- HTTP 클라이언트: Spring `RestClient`(상가 API 호출용), `RestClientCustomizer`로 타임아웃 주입
-- 캐시: Spring Cache(@Cacheable) + Caffeine(인메모리 TTL 10분)
-- 배포: Railway (미착수 — §9 "PostgreSQL 전환 시 주의" 참고)
-- 서킷브레이커: 미도입. 단순 try-catch+타임아웃으로 충분히 동작 중, 해커톤 스코프에선 추가 계획 없음
-
-**PostgreSQL 전환 시 주의**: `sql.init.mode: always` + `schema.sql`의 `DROP TABLE IF EXISTS ... CASCADE`는 H2 인메모리 개발용으로는 맞지만, 이 설정 그대로 영속 DB(Postgres)에 연결하면 **매 재기동마다 테이블을 지우고 다시 만들어 데이터가 날아간다**. Railway 배포 착수 시 `sql.init.mode`를 프로필 분기하거나 별도 마이그레이션 도구(Flyway 등)로 바꿔야 한다.
+- Java 17, Spring Boot 3.x, Spring Web, Spring Data JPA
+- DB: PostgreSQL(Railway). 로컬 H2(파일) 개발
+- HTTP 클라이언트: Spring RestClient 또는 WebClient(상가 API 호출용)
+- 캐시: Spring Cache(@Cacheable) + Caffeine(인메모리 TTL)
+- 배포: Railway
+- 서킷브레이커(선택): Resilience4j — 상가 API 연속 실패 시 일정 시간 호출 스킵하고 바로 null. 해커톤 스코프엔 과할 수 있어 단순 try-catch+타임아웃으로 시작, 여유되면 추가.
 
 ## 8. 조회 식별자 = PNU (일관성)
 
@@ -274,16 +255,15 @@ SiteQueryService.getSiteDetail(pnu):
 - `licensed_business_record`는 CSV 19컬럼 구조를 영문 컬럼명으로 보존하고, Site/Unit/Tenancy 계층은 Java 조회 서비스에서 조립
 - **MarketInfo는 테이블 없음**: 실시간 API 호출 결과라 DB에 영속화하지 않음(캐시만). schema.sql에서 marketInfo 관련 테이블 제거 — 이게 이전 버전과의 핵심 차이(이전엔 캐시 테이블을 뒀지만, "상권=실시간 호출" 원칙을 명확히 하려면 DB 영속화 자체를 안 하는 게 설계 의도에 맞음. 인메모리 캐시로 충분).
 
-## 10. 착수 순서 (Claude Code) — 2026-07-10 기준 전부 완료
+## 10. 착수 순서 (Claude Code)
 
-1. ✅ 프로젝트 스캐폰딩 + 계약 기반 컨트롤러 스텁(고정 목 응답).
-2. ✅ domain 순수 모델(Site/Unit/Tenancy/값객체/UnitStatistics) + 단위 테스트.
-3. ✅ infra.persistence: JPA 엔티티·리포지토리, 개폐업 조회 파이프라인(4.1) — 이후 `licensed_business_record` 단일 테이블 구조로 재설계됨(§9).
-4. ✅ TenancyQueryService + SiteQueryService(상권 없이 개폐업만) → search·sites 엔드포인트 완성.
-5. ✅ infra.geo: EPSG:5174 원본좌표를 WGS84 위경도로 변환(`KoreanTmCoordinateConverter`).
-6. ✅ infra.sangga: SanggaApiClient(HTTP), MarketInfoService(4.2).
-7. ✅ SiteQueryService에 상권 조합(4.3, try-catch 격리) → units 엔드포인트 완성.
-8. ✅ 캐시·타임아웃 적용. **Railway 배포는 미착수**(§7 "PostgreSQL 전환 시 주의" 참고).
-9. ✅ (추가) 소분류→상가 대분류코드 매핑(`IndustryCategoryMapper`), 서비스키 인코딩 버그 수정, `totalStoreCount`/`categoryBreakdown` 추가(§4.2).
+1. 프로젝트 스캐폰딩 + 계약 기반 컨트롤러 스텁(고정 목 응답).
+2. domain 순수 모델(Site/Unit/Tenancy/값객체/UnitStatistics) + 단위 테스트.
+3. infra.persistence: JPA 엔티티·리포지토리, 개폐업 조회 파이프라인(4.1).
+4. TenancyQueryService + SiteQueryService(상권 없이 개폐업만) → search·sites 엔드포인트 완성.
+5. infra.geo: EPSG:5174 원본좌표를 WGS84 위경도로 변환.
+6. infra.sangga: SangaApiClient(HTTP), MarketInfoService(4.2).
+6. SiteQueryService에 상권 조합(4.3, try-catch 격리) → units 엔드포인트 완성.
+7. 캐시·타임아웃·Railway 배포.
 
-**개폐업만으로 4번까지 가면 이미 핵심 서비스가 동작한다** — 상권(5~7)은 그 위에 얹는 부가층. 이 순서가 부분 실패 설계와 일치(상권 없어도 서비스 성립). 다음 단계는 Railway/Postgres 배포와 대용량 실데이터 적재(둘 다 이 문서 스코프 밖, `CLAUDE.md` §9 참고).
+**개폐업만으로 4번까지 가면 이미 핵심 서비스가 동작한다** — 상권(5~6)은 그 위에 얹는 부가층. 이 순서가 부분 실패 설계와 일치(상권 없어도 서비스 성립).
