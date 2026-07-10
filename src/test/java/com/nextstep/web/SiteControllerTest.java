@@ -62,7 +62,9 @@ class SiteControllerTest {
     void 신흥동으로_검색하면_후보가_나온다() throws Exception {
         mockMvc.perform(get("/api/sites/search").param("query", "신흥동"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(2)))
+            .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(435)))
+            .andExpect(jsonPath("$.candidates[*].pnu",
+                org.hamcrest.Matchers.hasItems("4113110100100340000", "4113110100100300002")))
             .andExpect(jsonPath("$.candidates[0].pnu").exists())
             .andExpect(jsonPath("$.candidates[0].latitude").isNumber())
             .andExpect(jsonPath("$.candidates[0].longitude").isNumber());
@@ -81,7 +83,7 @@ class SiteControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.site.latitude").value(org.hamcrest.Matchers.closeTo(37.441549006, 0.000001)))
             .andExpect(jsonPath("$.site.longitude").value(org.hamcrest.Matchers.closeTo(127.134741725, 0.000001)))
-            .andExpect(jsonPath("$.units[0].closedCount").value(1))
+            .andExpect(jsonPath("$.units[0].closedCount").value(4))
             .andExpect(jsonPath("$.disclaimer.note").exists());
     }
 
@@ -96,10 +98,10 @@ class SiteControllerTest {
     void 물건상세는_타임라인과_marketInfo를_포함한다() throws Exception {
         mockMvc.perform(get("/api/units/4113110100100340000-U1"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(3)))
             .andExpect(jsonPath("$.timeline[0].status").value("영업"))
             .andExpect(jsonPath("$.timeline[0].marketInfo.isPlaceholder").value(true))
-            .andExpect(jsonPath("$.statistics.totalTenancyCount").value(1));
+            .andExpect(jsonPath("$.statistics.totalTenancyCount").value(3));
     }
 
     @Test

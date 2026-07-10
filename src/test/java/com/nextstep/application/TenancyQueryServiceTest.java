@@ -95,7 +95,7 @@ class TenancyQueryServiceTest {
         var unitWithSite = tenancyQueryService.findUnitWithTenancies("4113110100100340000-U1");
         assertThat(unitWithSite).isPresent();
         Unit unit = unitWithSite.get().unit();
-        assertThat(unit.tenancies()).hasSize(1);
+        assertThat(unit.tenancies()).hasSize(3);
         assertThat(unitWithSite.get().site().jibunAddress()).contains("신흥동");
     }
 
