@@ -3,3 +3,4 @@ data/
 *.iml
 .idea/
 application-local.yml
+.env.local

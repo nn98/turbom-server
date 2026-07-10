@@ -3,6 +3,10 @@ package com.nextstep.infra.sangga;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 @Component
 public class SanggaApiClient {
 
@@ -22,16 +26,23 @@ public class SanggaApiClient {
             throw new IllegalArgumentException("반경은 최대 " + MAX_RADIUS_METERS + "m까지입니다: " + radiusMeters);
         }
 
+        // serviceKey는 base64 계열이라 +/=/를 포함한다. RestClient의 기본 URI 빌더는
+        // RFC 3986 기준으로 +를 안전한 문자로 보고 인코딩하지 않지만, data.go.kr은
+        // application/x-www-form-urlencoded 관례대로 +를 공백으로 해석해 키가
+        // 손상된다(401 Unauthorized). URLEncoder로 직접 인코딩한 뒤 이미 인코딩된
+        // URI로 요청해 RestClient가 다시 인코딩(이중 인코딩)하지 않게 한다.
+        String encodedServiceKey = URLEncoder.encode(properties.serviceKey(), StandardCharsets.UTF_8);
+        URI uri = URI.create(properties.baseUrl() + "/storeListInRadius"
+            + "?serviceKey=" + encodedServiceKey
+            + "&cx=" + lon
+            + "&cy=" + lat
+            + "&radius=" + radiusMeters
+            + "&numOfRows=" + NUM_OF_ROWS
+            + "&pageNo=1"
+            + "&type=json");
+
         SanggaStoreListResponse response = restClient.get()
-            .uri(uriBuilder -> uriBuilder.path("/storeListInRadius")
-                .queryParam("serviceKey", properties.serviceKey())
-                .queryParam("cx", lon)
-                .queryParam("cy", lat)
-                .queryParam("radius", radiusMeters)
-                .queryParam("numOfRows", NUM_OF_ROWS)
-                .queryParam("pageNo", 1)
-                .queryParam("type", "json")
-                .build())
+            .uri(uri)
             .retrieve()
             .body(SanggaStoreListResponse.class);
 
