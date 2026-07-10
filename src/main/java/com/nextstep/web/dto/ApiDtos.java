@@ -20,14 +20,16 @@ public class ApiDtos {
 
     public record UnitSummaryDto(String unitId, String label, String currentBusinessName, String currentStatus,
                                   int totalTenancyCount, int closedCount, Integer averageSurvivalMonths,
-                                  String industryDetail, String locationSource) {
+                                  String industryDetail, String locationSource,
+                                  String parsedFloor, String parsedUnitNo, String parseConfidence) {
     }
 
     public record UnitDetailResponse(UnitDto unit, UnitStatisticsDto statistics, List<TenancyDto> timeline,
                                       DisclaimerDto disclaimer) {
     }
 
-    public record UnitDto(String unitId, String label, String jibunAddress, String roadAddress) {
+    public record UnitDto(String unitId, String label, String jibunAddress, String roadAddress,
+                           String parsedFloor, String parsedUnitNo, String parseConfidence) {
     }
 
     public record UnitStatisticsDto(int totalTenancyCount, int closedCount, Integer averageSurvivalMonths,

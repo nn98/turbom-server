@@ -1,5 +1,6 @@
 package com.nextstep.application;
 
+import com.nextstep.domain.site.AddressDetailParser;
 import com.nextstep.domain.site.Pnu;
 import com.nextstep.domain.site.Site;
 import com.nextstep.domain.tenancy.Tenancy;
@@ -97,7 +98,9 @@ public class TenancyQueryService {
             .map(this::toTenancy)
             .sorted(Comparator.comparing(t -> t.period().licensedAt()))
             .toList();
-        return new Unit(group.unitId(), unitLabel(group.records().get(0).getRoadAddress()), LocationSource.LICENSE, tenancies);
+        LicensedBusinessRecordEntity representative = group.records().get(0);
+        return new Unit(group.unitId(), unitLabel(representative), LocationSource.LICENSE, tenancies,
+            representative.getParsedFloor(), representative.getParsedUnitNo(), representative.getParseConfidence());
     }
 
     private Tenancy toTenancy(LicensedBusinessRecordEntity entity) {
@@ -156,20 +159,23 @@ public class TenancyQueryService {
         return pnu + UNIT_ID_SEPARATOR + index;
     }
 
-    private String unitLabel(String roadAddress) {
-        if (roadAddress == null) return "단일 점포";
+    private String unitLabel(LicensedBusinessRecordEntity record) {
+        if (!AddressDetailParser.CONFIDENCE_HIGH.equals(record.getParseConfidence())) {
+            return "단일 점포";
+        }
 
-        List<String> patterns = List.of(
-            "([A-Z가-힣]+동\\s*\\d+호)",
-            "(\\d+층\\s*\\d+호)",
-            "(\\d{4}(?:,\\d{4})*호)",
-            "(\\d+호)",
-            "(\\d+층)"
-        );
-        String target = roadAddress.split("\\(")[0].trim();
-        for (String pattern : patterns) {
-            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(pattern).matcher(target);
-            if (matcher.find()) return matcher.group(1).replaceAll("\\s+", " ");
+        String floor = record.getParsedFloor();
+        String unitNo = record.getParsedUnitNo();
+        String buildingName = record.getParsedBuildingName();
+
+        if (unitNo != null) {
+            return (floor != null ? floor + "층 " : "") + unitNo + "호";
+        }
+        if (floor != null) {
+            return floor + "층";
+        }
+        if (buildingName != null) {
+            return buildingName;
         }
         return "단일 점포";
     }

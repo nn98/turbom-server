@@ -68,7 +68,8 @@ public class SiteQueryService {
             .map(t -> toTenancyDto(t, marketInfo))
             .toList();
 
-        UnitDto unitDto = new UnitDto(unit.unitId(), unit.label(), site.jibunAddress(), site.roadAddress());
+        UnitDto unitDto = new UnitDto(unit.unitId(), unit.label(), site.jibunAddress(), site.roadAddress(),
+            unit.parsedFloor(), unit.parsedUnitNo(), unit.parseConfidence());
         UnitStatisticsDto statisticsDto = toStatisticsDto(unit);
 
         return new UnitDetailResponse(unitDto, statisticsDto, timeline, disclaimer());
@@ -98,7 +99,8 @@ public class SiteQueryService {
         String industryDetail = unit.currentTenancy().map(Tenancy::industryDetail).orElse(null);
         return new UnitSummaryDto(unit.unitId(), unit.label(), currentBusinessName, currentStatus,
             stats.totalTenancyCount(), stats.closedCount(), stats.averageSurvivalMonths(),
-            industryDetail, unit.locationSource().dbValue());
+            industryDetail, unit.locationSource().dbValue(),
+            unit.parsedFloor(), unit.parsedUnitNo(), unit.parseConfidence());
     }
 
     private UnitStatisticsDto toStatisticsDto(Unit unit) {

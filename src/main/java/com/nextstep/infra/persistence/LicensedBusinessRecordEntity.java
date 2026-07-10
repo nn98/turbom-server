@@ -27,6 +27,11 @@ public class LicensedBusinessRecordEntity {
     private String jibunAddress;
     private Boolean addressSeparated;
     private Boolean addressCorrected;
+    private String parsedBuildingName;
+    private String parsedFloor;
+    private String parsedUnitNo;
+    private String parseConfidence;
+    private String parseMethod;
     private String localGovCode;
     @Column(name = "original_x")
     private BigDecimal originalX;
@@ -46,6 +51,11 @@ public class LicensedBusinessRecordEntity {
     public LocalDate getClosedAt() { return closedAt; }
     public String getRoadAddress() { return roadAddress; }
     public String getJibunAddress() { return jibunAddress; }
+    public String getParsedBuildingName() { return parsedBuildingName; }
+    public String getParsedFloor() { return parsedFloor; }
+    public String getParsedUnitNo() { return parsedUnitNo; }
+    public String getParseConfidence() { return parseConfidence; }
+    public String getParseMethod() { return parseMethod; }
     public BigDecimal getOriginalX() { return originalX; }
     public BigDecimal getOriginalY() { return originalY; }
 }

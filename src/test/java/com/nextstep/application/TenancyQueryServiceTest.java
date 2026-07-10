@@ -21,20 +21,22 @@ class TenancyQueryServiceTest {
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
             + "VALUES (990001, '4113110100100990000', '동물', '동물미용업', 'test-license-1', '중복PNU 1층', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 1, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 99 1층', "
-            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+            + "FALSE, TRUE, NULL, '1', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
     private static final String INSERT_DUPLICATE_UNIT_2 =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
             + "VALUES (990002, '4113110100100990000', '동물', '동물병원', 'test-license-2', '중복PNU 2층', "
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 1, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 99 2층', "
-            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+            + "FALSE, TRUE, NULL, '2', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
     private static final String SAME_JIBUN_PNU = "4113110100100980000";
     private static final String CSV_ADDRESS_UNIT_PNU = "4113110800105590004";
     private static final String DELETE_SAME_JIBUN_PNU =
