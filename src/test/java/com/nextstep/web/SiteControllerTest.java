@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.jdbc.Sql;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -12,6 +13,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 class SiteControllerTest {
+
+    private static final String DUPLICATE_PNU = "4113110100100990000";
+    private static final String CSV_ADDRESS_UNIT_PNU = "4113110800105590004";
+    private static final String DELETE_DUPLICATE_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + DUPLICATE_PNU + "'";
+    private static final String INSERT_DUPLICATE_UNIT_1 =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (990001, '4113110100100990000', '동물', '동물미용업', 'test-license-1', '중복PNU 1층', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 1, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 99 1층', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_DUPLICATE_UNIT_2 =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (990002, '4113110100100990000', '동물', '동물병원', 'test-license-2', '중복PNU 2층', "
+            + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
+            + "'경기도 성남시 수정구 테스트로 1, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 99 2층', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
 
     @Autowired MockMvc mockMvc;
 
@@ -27,7 +51,9 @@ class SiteControllerTest {
         mockMvc.perform(get("/api/sites/search").param("query", "신흥동"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(2)))
-            .andExpect(jsonPath("$.candidates[0].pnu").exists());
+            .andExpect(jsonPath("$.candidates[0].pnu").exists())
+            .andExpect(jsonPath("$.candidates[0].latitude").isNumber())
+            .andExpect(jsonPath("$.candidates[0].longitude").isNumber());
     }
 
     @Test
@@ -41,7 +67,9 @@ class SiteControllerTest {
     void 자리상세는_폐업많은순으로_물건이_정렬된다() throws Exception {
         mockMvc.perform(get("/api/sites/4113110300100280001"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.units[0].closedCount").value(2))
+            .andExpect(jsonPath("$.site.latitude").value(org.hamcrest.Matchers.closeTo(37.441549006, 0.000001)))
+            .andExpect(jsonPath("$.site.longitude").value(org.hamcrest.Matchers.closeTo(127.134741725, 0.000001)))
+            .andExpect(jsonPath("$.units[0].closedCount").value(1))
             .andExpect(jsonPath("$.disclaimer.note").exists());
     }
 
@@ -56,8 +84,37 @@ class SiteControllerTest {
     void 물건상세는_타임라인과_marketInfo를_포함한다() throws Exception {
         mockMvc.perform(get("/api/units/4113110100100340000-U1"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(2)))
+            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(1)))
             .andExpect(jsonPath("$.timeline[0].marketInfo.isPlaceholder").value(true))
-            .andExpect(jsonPath("$.statistics.totalTenancyCount").value(2));
+            .andExpect(jsonPath("$.statistics.totalTenancyCount").value(1));
+    }
+
+    @Test
+    @Sql(statements = {DELETE_DUPLICATE_PNU, INSERT_DUPLICATE_UNIT_1, INSERT_DUPLICATE_UNIT_2})
+    @Sql(statements = DELETE_DUPLICATE_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 같은_pnu의_지번주소별_물건을_리스팅한다() throws Exception {
+        mockMvc.perform(get("/api/sites/" + DUPLICATE_PNU))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(2)))
+            .andExpect(jsonPath("$.units[0].unitId").value(DUPLICATE_PNU + "-U2"))
+            .andExpect(jsonPath("$.units[1].unitId").value(DUPLICATE_PNU + "-U1"));
+
+        mockMvc.perform(get("/api/units/" + DUPLICATE_PNU + "-U2"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.unit.roadAddress").value(org.hamcrest.Matchers.containsString("2층")))
+            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(jsonPath("$.timeline[0].businessName").value("중복PNU 2층"));
+    }
+
+    @Test
+    void csv_동일_pnu의_상세주소별_물건을_리스팅한다() throws Exception {
+        mockMvc.perform(get("/api/sites/" + CSV_ADDRESS_UNIT_PNU))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.site.latitude").isNumber())
+            .andExpect(jsonPath("$.site.longitude").isNumber())
+            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(28)))
+            .andExpect(jsonPath("$.units[*].totalTenancyCount", org.hamcrest.Matchers.hasItem(16)))
+            .andExpect(jsonPath("$.units[*].currentStatus",
+                org.hamcrest.Matchers.hasItems("영업", "공실")));
     }
 }

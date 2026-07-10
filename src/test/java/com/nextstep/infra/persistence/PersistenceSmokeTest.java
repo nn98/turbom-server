@@ -9,27 +9,34 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 class PersistenceSmokeTest {
 
-    @Autowired SiteJpaRepository siteRepository;
-    @Autowired UnitJpaRepository unitRepository;
-    @Autowired TenancyJpaRepository tenancyRepository;
+    @Autowired LicensedBusinessRecordRepository recordRepository;
 
     @Test
     void 시드_데이터가_전부_로드된다() {
-        assertThat(siteRepository.count()).isEqualTo(6);
-        assertThat(unitRepository.count()).isEqualTo(6);
-        assertThat(tenancyRepository.count()).isEqualTo(8);
+        assertThat(recordRepository.count()).isEqualTo(79);
     }
 
     @Test
-    void 자리로_물건을_조회한다() {
-        List<UnitEntity> units = unitRepository.findBySitePnu("4113110100100340000");
-        assertThat(units).hasSize(1);
-        assertThat(units.get(0).getUnitId()).isEqualTo("4113110100100340000-U1");
+    void pnu로_csv_원본행을_조회한다() {
+        List<LicensedBusinessRecordEntity> records =
+            recordRepository.findByPnuOrderByLicensedAtAscIdAsc("4113110100100340000");
+        assertThat(records).hasSize(1);
+        assertThat(records.get(0).getBusinessName()).isEqualTo("동물병원 더 하임");
     }
 
     @Test
-    void 물건으로_이력을_조회하면_두_건이_나온다() {
-        List<TenancyEntity> tenancies = tenancyRepository.findByUnitId("4113110100100340000-U1");
-        assertThat(tenancies).hasSize(2);
+    void 주소로_csv_원본행을_검색한다() {
+        List<LicensedBusinessRecordEntity> records = recordRepository.searchByAddress("신흥동");
+        assertThat(records).hasSize(2);
+    }
+
+    @Test
+    void 같은_pnu의_상세주소가_다른_csv_원본행을_로드한다() {
+        List<LicensedBusinessRecordEntity> records =
+            recordRepository.findByPnuOrderByLicensedAtAscIdAsc("4113110800105590004");
+
+        assertThat(records).hasSize(59);
+        assertThat(recordRepository.findById(102020L).orElseThrow().getSubCategory())
+            .isEqualTo("환경전문공사업");
     }
 }

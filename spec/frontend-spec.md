@@ -1,0 +1,247 @@
+# 넥스트스텝 프론트엔드 명세 v3 (목 완결 · Claude Code용)
+
+이전 `frontend-spec-v2.md`를 대체한다. **정정**: 실제 화면(스크린샷) 확인 결과 상권정보 패널의 위치가 잘못 설계됐었다 — 건물 상세(②)가 아니라 **물건 상세(③)** 안에, "가게 자세히 보기" 드롭다운으로 선택한 이력(Tenancy) 옆에 붙는 카드였다. v2의 화면② `NeighborhoodPanel`은 제거하고, 화면③에 "계약·주변상권 정보" 카드를 추가한다. 상위 계약은 `api-spec.md`.
+
+## 0. 무엇을 만드나
+
+지번 검색 → 건물(자리)의 물건 목록 → 물건 선택 → **타임라인 + 이력별 상세(인허가정보 + 계약·주변상권정보)**. 세 데이터 성격을 화면에서 명확히 구분한다:
+
+- **인허가정보** → 타임라인, "가게 자세히 보기"의 인허가정보 카드
+- **상권정보(상가 API)** → 물건목록 보강 태그(industryDetail 등) + "가게 자세히 보기"의 상권정보 카드 중 **1개 필드만**(주변 같은업종 개수)
+- **미확보 소스(임대차·유동인구·공실률)** → 같은 카드의 나머지 필드, **항상 목업**. 화면에 "실 데이터 연동 전 예시값입니다" 캡션 상시 노출
+
+목(mock) 모드로 완결. 환경변수만 바꾸면 실 API로 전환.
+
+## 1. 스택
+
+React 18 + Vite + TS · React Router · TanStack Query · Tailwind · react-leaflet+OSM · Vercel 배포.
+
+## 2. 목/실 전환 구조
+
+`VITE_API_BASE_URL` 미설정=목, 설정=실. `search`/`getSite`/`getUnit` 세 함수, 300ms 지연 목 응답. 미매칭 시 계약과 동일한 에러 throw.
+
+## 3. 라우트
+
+| 경로 | 화면 | 데이터 |
+|---|---|---|
+| `/` | ① 랜딩·검색 | `search` |
+| `/map?q=&pnu=` | ② 지도+건물 상세(물건목록) | `search`(q 있을 때) · `getSite` |
+| `/units/:unitId` | ③ 물건 상세(타임라인+이력상세) | `getUnit` |
+
+2026-07-10(8차) 정정: ②는 경로 파라미터(`/sites/:pnu`)가 아니라 지도 중심 단일 화면(`/map`)에 쿼리스트링(`q`, `pnu`)으로 구현됐다(nextstep-client 실 구현 기준, `spec/프론트-제작-프롬프트.md` "검색 페이지" 절 참조). API 엔드포인트 `GET /api/sites/{pnu}`는 그대로이며, 바뀐 건 프론트 라우팅 방식뿐이다.
+
+## 4. 화면 명세
+
+### ① 랜딩 `/`
+
+기존과 동일. 히어로·검색바·예시칩 3개("시흥동 123"은 의도적 빈결과)·후보리스트·상태 4종.
+
+### ② 지도+건물 상세 `/map?q=&pnu=` (v2에서 단순화, 2026-07-10 8차 라우팅 정정)
+
+- 전체화면 지도 위 플로팅 패널 구조(단일 마커 고정 뷰가 아니라, `search(q)` 후보 전체를 마커로 표시하고 `fitBounds`로 한번에 보여줌 — 후보가 여럿이면 세그먼트 탭으로 전환, 좌표null 후보는 지도에서 제외). 상세: `spec/프론트-제작-프롬프트.md` "검색 페이지" 절.
+- 요약바(`물건 N개`) + 물건 목록.
+- 물건 카드: `label`(+ locationSource 배지) / 상태뱃지 / 현재가게명(+industryDetail 태그) / 미니통계. 클릭 → `/units/:unitId`.
+- **v2에 있던 주변상권 패널은 여기 없음** — ③으로 이동했다. ②는 물건 목록에만 집중.
+- disclaimer 하단. 상태: 로딩/404/물건0.
+
+### ③ 물건 상세 `/units/:unitId` (핵심 변경)
+
+**상단**: label+주소, 통계 카드 4개(거쳐간가게/폐업/평균생존/최장·최단) — 화면 상단 스탯 카드 4개는 참고 이미지의 "거쳐간 가게 5곳 / 폐업 4번 / 평균 영업기간 27개월 / 가장 길게·짧게 44/11개월"과 동일 구성.
+
+**운영 타임라인**: 가로 바 형태, 과거(좌)→현재(우), 각 구간 폭은 생존개월 비례. 구간 클릭 시 상단에 "가게명 · 업종 · 개월" 툴팁/배지 표시(이미지의 "고기굽는집 · 한식 · 44개월" 배지). 업종 범례(색상 dot + 업종명) 하단에.
+
+**가게 자세히 보기** (신규 섹션, 이미지 하단부와 동일 구조)
+- 드롭다운: `timeline[]`의 각 항목을 `businessName · licensedAt~closedAt|현재` 형태로 나열, `tenancyId`로 선택. 기본 선택값 = 가장 최근(마지막) 이력.
+- 선택 시 2단 카드 레이아웃:
+  - **좌: 인허가 정보** — 상호명·업종·개업일자·폐업일자·영업기간·영업상태. 전부 이미 `timeline[]`에 있는 필드 그대로(신규 API 불필요).
+  - **우: 계약·주변상권 정보** — `marketInfo` 객체 렌더링. 카드 헤더 옆에 "예시" 뱃지 상시(참고 이미지와 동일). 필드: 전용면적 / 보증금·월세(슬래시로 함께 표기) / 권리금(0이면 "무") / 일평균 유동인구 / 주변 같은업종(N)곳 / 주변 공실률(%). 카드 최하단에 항상 "실 데이터 연동 전 예시값입니다" 캡션 — **`isPlaceholder` 여부와 무관하게 상시 노출**(현재는 항상 true라 사실상 상시).
+  - `sameCategoryNearbyCount`만 실값일 수 있으므로, 이 필드 하나는 다른 5개와 시각적으로 살짝 구분(예: 색을 다르게)하는 걸 권장하되 필수는 아님.
+
+disclaimer 하단. 상태: 로딩/404/이력0.
+
+## 5. 타입
+
+```ts
+interface Candidate { pnu: string; jibunAddress: string; roadAddress: string; latitude: number|null; longitude: number|null; unitCount: number; closedCount: number; }
+interface SearchResponse { candidates: Candidate[]; }
+
+interface Disclaimer { dataAsOf: string; note: string; }
+
+type LocationSource = "license" | "sangga_api" | "overlap_inferred";
+interface UnitSummary {
+  unitId: string; label: string;
+  currentBusinessName: string|null; currentStatus: "영업"|"공실";
+  totalTenancyCount: number; closedCount: number; averageSurvivalMonths: number|null;
+  industryDetail: string|null; locationSource: LocationSource;
+}
+interface SiteDetail {
+  site: { pnu: string; jibunAddress: string; roadAddress: string; latitude: number|null; longitude: number|null; };
+  units: UnitSummary[];
+  disclaimer: Disclaimer;
+}
+
+type EnrichmentSource = "sangga_api" | "license_only";
+interface Statistics { totalTenancyCount: number; closedCount: number; averageSurvivalMonths: number|null; longestSurvivalMonths: number|null; shortestSurvivalMonths: number|null; }
+
+interface MarketInfo {
+  isPlaceholder: boolean;
+  leaseAreaSqm: number|null;
+  depositKrw: number|null;
+  monthlyRentKrw: number|null;
+  keyMoneyKrw: number|null;
+  dailyFloatingPopulation: number|null;
+  sameCategoryNearbyCount: number|null;  // 유일한 실값 후보
+  vacancyRatePercent: number|null;
+  asOf: string;
+}
+
+interface Tenancy {
+  tenancyId: string;
+  businessName: string; category: string; subCategory: string; industryDetail: string|null;
+  licensedAt: string; closedAt: string|null; status: "영업"|"폐업";
+  survivalMonths: number|null; closedAtEstimated: boolean; enrichmentSource: EnrichmentSource;
+  marketInfo: MarketInfo;
+}
+interface UnitDetail {
+  unit: { unitId: string; label: string; jibunAddress: string; roadAddress: string; };
+  statistics: Statistics; timeline: Tenancy[]; disclaimer: Disclaimer;
+}
+
+interface ApiError { error: string; message: string; }
+```
+
+## 6. 목 데이터셋
+
+### search / getSite — v2와 동일 구조(neighborhood 필드만 제거)
+
+```json
+{ "candidates": [
+  { "pnu": "4113310300104050001", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815", "latitude": 37.4012, "longitude": 127.1045, "unitCount": 3, "closedCount": 8 },
+  { "pnu": "4113310300104050003", "jibunAddress": "경기도 성남시 수정구 금토동 405-3", "roadAddress": "경기도 성남시 수정구 대왕판교로 817", "latitude": 37.4015, "longitude": 127.1050, "unitCount": 1, "closedCount": 3 }
+]}
+```
+
+```json
+{
+  "site": { "pnu": "4113310300104050001", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815", "latitude": 37.4012, "longitude": 127.1045 },
+  "units": [
+    { "unitId": "4113310300104050001-U1", "label": "1층 101호", "currentBusinessName": "치킨나라", "currentStatus": "영업", "totalTenancyCount": 5, "closedCount": 4, "averageSurvivalMonths": 27, "industryDetail": "후라이드/양념치킨", "locationSource": "sangga_api" },
+    { "unitId": "4113310300104050001-U2", "label": "2층 201호", "currentBusinessName": null, "currentStatus": "공실", "totalTenancyCount": 3, "closedCount": 3, "averageSurvivalMonths": 14, "industryDetail": null, "locationSource": "overlap_inferred" },
+    { "unitId": "4113310300104050001-U3", "label": "1층 102호", "currentBusinessName": "파리바게뜨", "currentStatus": "영업", "totalTenancyCount": 2, "closedCount": 1, "averageSurvivalMonths": 60, "industryDetail": "제과점", "locationSource": "sangga_api" }
+  ],
+  "disclaimer": { "dataAsOf": "2026-07-04", "note": "인허가 신고 기준 데이터로 실제 영업 현황과 차이가 있을 수 있습니다." }
+}
+```
+
+```json
+{
+  "site": { "pnu": "4113310300104050003", "jibunAddress": "경기도 성남시 수정구 금토동 405-3", "roadAddress": "경기도 성남시 수정구 대왕판교로 817", "latitude": 37.4015, "longitude": 127.1050 },
+  "units": [
+    { "unitId": "4113310300104050003-U1", "label": "단일 점포", "currentBusinessName": null, "currentStatus": "공실", "totalTenancyCount": 3, "closedCount": 3, "averageSurvivalMonths": 9, "industryDetail": null, "locationSource": "license" }
+  ],
+  "disclaimer": { "dataAsOf": "2026-07-04", "note": "인허가 신고 기준 데이터로 실제 영업 현황과 차이가 있을 수 있습니다." }
+}
+```
+
+### getUnit — marketInfo 포함(핵심 변경). U1은 참고 이미지와 동일 데이터로 맞춤
+
+```json
+{
+  "unit": { "unitId": "4113310300104050001-U1", "label": "1층 101호", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815" },
+  "statistics": { "totalTenancyCount": 5, "closedCount": 4, "averageSurvivalMonths": 27, "longestSurvivalMonths": 44, "shortestSurvivalMonths": 11 },
+  "timeline": [
+    { "tenancyId": "t-1001", "businessName": "고기굽는집", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2013-05-02", "closedAt": "2017-01-10", "status": "폐업", "survivalMonths": 44, "closedAtEstimated": false, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 42.6, "depositKrw": 50000000, "monthlyRentKrw": 2800000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 21400, "sameCategoryNearbyCount": 14, "vacancyRatePercent": 6.2, "asOf": "2026-07-04" } },
+    { "tenancyId": "t-1002", "businessName": "카페모모", "category": "음식", "subCategory": "휴게음식점", "industryDetail": null, "licensedAt": "2017-03-01", "closedAt": "2018-05-20", "status": "폐업", "survivalMonths": 14, "closedAtEstimated": false, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 42.6, "depositKrw": 50000000, "monthlyRentKrw": 2800000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 21400, "sameCategoryNearbyCount": 6, "vacancyRatePercent": 6.2, "asOf": "2026-07-04" } },
+    { "tenancyId": "t-1003", "businessName": "마라방", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2018-08-15", "closedAt": "2019-07-10", "status": "폐업", "survivalMonths": 11, "closedAtEstimated": true, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 42.6, "depositKrw": 50000000, "monthlyRentKrw": 2800000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 21400, "sameCategoryNearbyCount": 3, "vacancyRatePercent": 6.2, "asOf": "2026-07-04" } },
+    { "tenancyId": "t-1004", "businessName": "분식왕", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2019-10-01", "closedAt": "2022-12-05", "status": "폐업", "survivalMonths": 38, "closedAtEstimated": false, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 42.6, "depositKrw": 50000000, "monthlyRentKrw": 2800000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 21400, "sameCategoryNearbyCount": 9, "vacancyRatePercent": 6.2, "asOf": "2026-07-04" } },
+    { "tenancyId": "t-1005", "businessName": "치킨나라", "category": "음식", "subCategory": "일반음식점", "industryDetail": "후라이드/양념치킨", "licensedAt": "2023-01-15", "closedAt": null, "status": "영업", "survivalMonths": 41, "closedAtEstimated": false, "enrichmentSource": "sangga_api",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 42.6, "depositKrw": 50000000, "monthlyRentKrw": 2800000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 21400, "sameCategoryNearbyCount": 14, "vacancyRatePercent": 6.2, "asOf": "2026-07-04" } }
+  ],
+  "disclaimer": { "dataAsOf": "2026-07-04", "note": "인허가 신고 기준 데이터로 실제 영업 현황과 차이가 있을 수 있습니다." }
+}
+```
+
+```json
+{
+  "unit": { "unitId": "4113310300104050001-U2", "label": "2층 201호", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815" },
+  "statistics": { "totalTenancyCount": 3, "closedCount": 3, "averageSurvivalMonths": 14, "longestSurvivalMonths": 20, "shortestSurvivalMonths": 8 },
+  "timeline": [
+    { "tenancyId": "t-2001", "businessName": "호프하우스", "category": "음식", "subCategory": "단란주점", "industryDetail": null, "licensedAt": "2019-02-01", "closedAt": "2020-10-01", "status": "폐업", "survivalMonths": 20, "closedAtEstimated": false, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 28.9, "depositKrw": 30000000, "monthlyRentKrw": 1800000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 21400, "sameCategoryNearbyCount": 2, "vacancyRatePercent": 6.2, "asOf": "2026-07-04" } },
+    { "tenancyId": "t-2002", "businessName": "샐러디", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2021-01-10", "closedAt": "2021-09-15", "status": "폐업", "survivalMonths": 8, "closedAtEstimated": false, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 28.9, "depositKrw": 30000000, "monthlyRentKrw": 1800000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 21400, "sameCategoryNearbyCount": 4, "vacancyRatePercent": 6.2, "asOf": "2026-07-04" } },
+    { "tenancyId": "t-2003", "businessName": "떡볶이연구소", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2022-03-01", "closedAt": "2023-04-20", "status": "폐업", "survivalMonths": 13, "closedAtEstimated": false, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 28.9, "depositKrw": 30000000, "monthlyRentKrw": 1800000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 21400, "sameCategoryNearbyCount": 9, "vacancyRatePercent": 6.2, "asOf": "2026-07-04" } }
+  ],
+  "disclaimer": { "dataAsOf": "2026-07-04", "note": "인허가 신고 기준 데이터로 실제 영업 현황과 차이가 있을 수 있습니다." }
+}
+```
+
+```json
+{
+  "unit": { "unitId": "4113310300104050001-U3", "label": "1층 102호", "jibunAddress": "경기도 성남시 수정구 금토동 405-1", "roadAddress": "경기도 성남시 수정구 대왕판교로 815" },
+  "statistics": { "totalTenancyCount": 2, "closedCount": 1, "averageSurvivalMonths": 60, "longestSurvivalMonths": 60, "shortestSurvivalMonths": 60 },
+  "timeline": [
+    { "tenancyId": "t-3001", "businessName": "김밥천국", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2013-01-05", "closedAt": "2018-01-05", "status": "폐업", "survivalMonths": 60, "closedAtEstimated": false, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 35.0, "depositKrw": 40000000, "monthlyRentKrw": 2200000, "keyMoneyKrw": 5000000, "dailyFloatingPopulation": 21400, "sameCategoryNearbyCount": 9, "vacancyRatePercent": 6.2, "asOf": "2026-07-04" } },
+    { "tenancyId": "t-3002", "businessName": "파리바게뜨", "category": "음식", "subCategory": "제과점", "industryDetail": "제과점", "licensedAt": "2018-04-01", "closedAt": null, "status": "영업", "survivalMonths": 99, "closedAtEstimated": false, "enrichmentSource": "sangga_api",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 35.0, "depositKrw": 40000000, "monthlyRentKrw": 2200000, "keyMoneyKrw": 5000000, "dailyFloatingPopulation": 21400, "sameCategoryNearbyCount": 3, "vacancyRatePercent": 6.2, "asOf": "2026-07-04" } }
+  ],
+  "disclaimer": { "dataAsOf": "2026-07-04", "note": "인허가 신고 기준 데이터로 실제 영업 현황과 차이가 있을 수 있습니다." }
+}
+```
+
+```json
+{
+  "unit": { "unitId": "4113310300104050003-U1", "label": "단일 점포", "jibunAddress": "경기도 성남시 수정구 금토동 405-3", "roadAddress": "경기도 성남시 수정구 대왕판교로 817" },
+  "statistics": { "totalTenancyCount": 3, "closedCount": 3, "averageSurvivalMonths": 9, "longestSurvivalMonths": 12, "shortestSurvivalMonths": 6 },
+  "timeline": [
+    { "tenancyId": "t-4001", "businessName": "무한리필고기", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2020-01-01", "closedAt": "2021-01-01", "status": "폐업", "survivalMonths": 12, "closedAtEstimated": false, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 50.2, "depositKrw": 20000000, "monthlyRentKrw": 1500000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 8600, "sameCategoryNearbyCount": 1, "vacancyRatePercent": 11.4, "asOf": "2026-07-04" } },
+    { "tenancyId": "t-4002", "businessName": "포케올데이", "category": "음식", "subCategory": "일반음식점", "industryDetail": null, "licensedAt": "2021-05-01", "closedAt": "2021-11-01", "status": "폐업", "survivalMonths": 6, "closedAtEstimated": false, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 50.2, "depositKrw": 20000000, "monthlyRentKrw": 1500000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 8600, "sameCategoryNearbyCount": 0, "vacancyRatePercent": 11.4, "asOf": "2026-07-04" } },
+    { "tenancyId": "t-4003", "businessName": "마차코", "category": "음식", "subCategory": "휴게음식점", "industryDetail": null, "licensedAt": "2022-02-01", "closedAt": "2022-11-01", "status": "폐업", "survivalMonths": 9, "closedAtEstimated": false, "enrichmentSource": "license_only",
+      "marketInfo": { "isPlaceholder": true, "leaseAreaSqm": 50.2, "depositKrw": 20000000, "monthlyRentKrw": 1500000, "keyMoneyKrw": 0, "dailyFloatingPopulation": 8600, "sameCategoryNearbyCount": 2, "vacancyRatePercent": 11.4, "asOf": "2026-07-04" } }
+  ],
+  "disclaimer": { "dataAsOf": "2026-07-04", "note": "인허가 신고 기준 데이터로 실제 영업 현황과 차이가 있을 수 있습니다." }
+}
+```
+
+> 목 조회 규칙 동일: search 부분일치, getSite/getUnit 키 정확일치. "시흥동 123" 의도적 빈결과.
+
+## 7. 공통 컴포넌트
+
+기존: `SearchBar`, `AddressText`, `StatusBadge`, `StatCard`, `Disclaimer`, `EmptyState`, `ErrorState`, `LoadingSkeleton`, `UnitCard`, `MapView`, `LocationSourceBadge`, `IndustryTag`.
+
+**변경**: `TimelineItem`(카드형) → **`TimelineBar`**(가로 바 형태, 구간폭=생존개월 비례, 참고 이미지 구조로 교체). `SurvivalBar`는 TimelineBar 내부로 흡수.
+
+**신규**: `TenancySelector`(드롭다운, timeline[]→tenancyId 선택) · `LicenseInfoCard`(선택된 이력의 인허가정보 6필드) · `MarketInfoCard`(marketInfo 6필드 + "예시" 뱃지 + 하단 캡션 상시 노출).
+
+**제거**: `NeighborhoodPanel`(v2에서 화면②용으로 만들었던 것, 더 이상 없음 — Claude Code가 v2로 이미 작업 중이었다면 이 컴포넌트를 ③으로 이전하며 MarketInfoCard로 개명하는 것으로 처리).
+
+## 8. 디자인 톤
+
+다크 네이비·청록·오렌지 유지. `MarketInfoCard`는 참고 이미지처럼 "예시" 뱃지(연한 배경 + 작은 텍스트)를 헤더에 고정 배치, 카드 자체 배경은 다른 카드와 톤 차이를 살짝 둬서 "실데이터 아님"이 시각적으로도 구분되게.
+
+## 9. 완료 기준(DoD)
+
+- 3화면 전환 동작(기존과 동일).
+- **화면②에 주변상권 패널 없음**(v2 설계 정정 반영 확인).
+- **화면③에 TimelineBar + TenancySelector + LicenseInfoCard + MarketInfoCard 동작**. 드롭다운으로 이력 전환 시 좌우 카드 즉시 갱신.
+- MarketInfoCard 하단 "실 데이터 연동 전 예시값입니다" 캡션 항상 노출.
+- disclaimer 상시 노출(별개로, MarketInfo 캡션과 혼동 금지 — 하나는 전체 서비스 고지, 하나는 카드 단위 목업 고지).
+- `VITE_API_BASE_URL` 스위치, Vercel 배포.
+
+## 10. 착수 순서
+
+1. 스캐폰딩.
+2. 타입(5장) + 목 7종(6장) + client.ts.
+3. 화면①.
+4. 화면② — 물건목록만(단순화됨, neighborhood 없음).
+5. 화면③ — TimelineBar → TenancySelector → LicenseInfoCard/MarketInfoCard 순서로 구축.
+6. 상태·반응형·톤.
+7. Vercel 배포.
