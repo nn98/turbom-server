@@ -97,7 +97,7 @@ class TenancyQueryServiceTest {
         var unitWithSite = tenancyQueryService.findUnitWithTenancies("4113110100100340000-U1");
         assertThat(unitWithSite).isPresent();
         Unit unit = unitWithSite.get().unit();
-        assertThat(unit.tenancies()).hasSize(3);
+        assertThat(unit.tenancies()).hasSize(4);
         assertThat(unitWithSite.get().site().jibunAddress()).contains("신흥동");
     }
 
@@ -147,7 +147,7 @@ class TenancyQueryServiceTest {
 
         assertThat(site.coordinate()).isNotNull();
         assertThat(site.units()).hasSize(28);
-        assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(59);
+        assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(81);
         assertThat(site.units()).anySatisfy(unit -> assertThat(unit.tenancies()).hasSize(16));
         assertThat(site.units().stream()
             .flatMap(unit -> unit.tenancies().stream())
