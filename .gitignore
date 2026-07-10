@@ -1,5 +1,7 @@
 target/
 data/
+!src/main/resources/data/
+!src/main/resources/data/**/*.sql
 *.iml
 .idea/
 application-local.yml
