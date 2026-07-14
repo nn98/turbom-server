@@ -8,7 +8,7 @@ import org.springframework.cache.annotation.EnableCaching;
 @SpringBootApplication
 @EnableCaching
 @ConfigurationPropertiesScan
-public class NextstepApplication { 
+public class NextstepApplication {
     public static void main(String[] args) {
         SpringApplication.run(NextstepApplication.class, args);
     }
