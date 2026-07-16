@@ -1,5 +1,7 @@
 package com.nextstep.infra.sangga;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -13,6 +15,7 @@ import java.util.stream.Collectors;
 @Component
 public class SanggaApiClient {
 
+    private static final Logger log = LoggerFactory.getLogger(SanggaApiClient.class);
     private static final int MAX_RADIUS_METERS = 2000;
     private static final int BREAKDOWN_NUM_OF_ROWS = 500; // API 1회 최대치. 그 이상 밀집 지역은 근사치.
 
@@ -22,6 +25,9 @@ public class SanggaApiClient {
     public SanggaApiClient(RestClient.Builder restClientBuilder, SanggaProperties properties) {
         this.restClient = restClientBuilder.baseUrl(properties.baseUrl()).build();
         this.properties = properties;
+        if (properties.serviceKey() == null || properties.serviceKey().isBlank()) {
+            log.warn("SANGGA_SERVICE_KEY is not set — marketInfo enrichment will return unavailable/empty for every request");
+        }
     }
 
     /**

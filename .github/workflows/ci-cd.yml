@@ -40,6 +40,14 @@ jobs:
         run: |
           sudo systemctl restart turbom-server.service
 
+      - name: Verify sangga service key is present on the service
+        run: |
+          if sudo systemctl show turbom-server.service --property=Environment | grep -q SANGGA_SERVICE_KEY; then
+            echo "SANGGA_SERVICE_KEY is set on turbom-server.service"
+          else
+            echo "::warning::SANGGA_SERVICE_KEY missing from turbom-server.service environment"
+          fi
+
       - name: Verify
         run: |
           sleep 15
