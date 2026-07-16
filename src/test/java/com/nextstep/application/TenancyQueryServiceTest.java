@@ -1,6 +1,7 @@
 package com.nextstep.application;
 
 import com.nextstep.domain.site.Site;
+import com.nextstep.domain.tenancy.Tenancy;
 import com.nextstep.domain.unit.Unit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +61,93 @@ class TenancyQueryServiceTest {
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 3, 119호 (테스트동)', '경기도 성남시 수정구 테스트동 97 119호', "
             + "FALSE, TRUE, NULL, NULL, '119', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String MULTI_CATEGORY_PNU = "4113110100100960000";
+    private static final String DELETE_MULTI_CATEGORY_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + MULTI_CATEGORY_PNU + "'";
+    // 시나리오1: gap 90일 이내 업종 전환 -> 병합
+    private static final String INSERT_GAP_MERGE_A =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (990301, '4113110100100960000', '외식', '커피', 'test-license-10', '병합가게A', "
+            + "NULL, '폐업', '0002', '폐업', '2020-01-01', '2022-01-01', "
+            + "'경기도 성남시 수정구 테스트로 4, 1층 101호 (테스트동)', '경기도 성남시 수정구 테스트동 96 1층 101호', "
+            + "FALSE, TRUE, NULL, '1', '101', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_GAP_MERGE_B =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (990302, '4113110100100960000', '소매', '즉석판매', 'test-license-11', '병합가게A', "
+            + "NULL, '영업/정상', '0000', '정상', '2022-02-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 4, 1층 101호 (테스트동)', '경기도 성남시 수정구 테스트동 96 1층 101호', "
+            + "FALSE, TRUE, NULL, '1', '101', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    // 시나리오2: gap 90일 초과 재입점 -> 분리 유지
+    private static final String INSERT_GAP_SPLIT_C =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (990303, '4113110100100960000', '외식', '한식', 'test-license-12', '재입점가게B', "
+            + "NULL, '폐업', '0002', '폐업', '2018-01-01', '2018-06-01', "
+            + "'경기도 성남시 수정구 테스트로 4, 2층 102호 (테스트동)', '경기도 성남시 수정구 테스트동 96 2층 102호', "
+            + "FALSE, TRUE, NULL, '2', '102', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_GAP_SPLIT_D =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (990304, '4113110100100960000', '외식', '분식', 'test-license-13', '재입점가게B', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 4, 2층 102호 (테스트동)', '경기도 성남시 수정구 테스트동 96 2층 102호', "
+            + "FALSE, TRUE, NULL, '2', '102', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    // 시나리오3: 완전 겹침(업종 두 개 동시 보유) -> 병합
+    private static final String INSERT_OVERLAP_E =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (990305, '4113110100100960000', '외식', '카페', 'test-license-14', '동시업종가게C', "
+            + "NULL, '영업/정상', '0000', '정상', '2021-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 4, 3층 103호 (테스트동)', '경기도 성남시 수정구 테스트동 96 3층 103호', "
+            + "FALSE, TRUE, NULL, '3', '103', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_OVERLAP_F =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (990306, '4113110100100960000', '소매', '베이커리', 'test-license-15', '동시업종가게C', "
+            + "NULL, '영업/정상', '0000', '정상', '2021-06-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 4, 3층 103호 (테스트동)', '경기도 성남시 수정구 테스트동 96 3층 103호', "
+            + "FALSE, TRUE, NULL, '3', '103', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    // 시나리오4: 같은 Unit이지만 businessName 다름 -> 병합 안 함 (회귀)
+    private static final String INSERT_DIFFERENT_NAME_G =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (990307, '4113110100100960000', '서비스', '미용', 'test-license-16', '가게D-1', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 4, 4층 104호 (테스트동)', '경기도 성남시 수정구 테스트동 96 4층 104호', "
+            + "FALSE, TRUE, NULL, '4', '104', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_DIFFERENT_NAME_H =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (990308, '4113110100100960000', '서비스', '세탁', 'test-license-17', '가게D-2', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-06-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 4, 4층 104호 (테스트동)', '경기도 성남시 수정구 테스트동 96 4층 104호', "
+            + "FALSE, TRUE, NULL, '4', '104', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
     private static final String SAME_JIBUN_PNU = "4113110100100980000";
     private static final String CSV_ADDRESS_UNIT_PNU = "4113110800105590004";
     private static final String DELETE_SAME_JIBUN_PNU =
@@ -176,14 +264,77 @@ class TenancyQueryServiceTest {
     }
 
     @Test
+    @Sql(statements = {DELETE_MULTI_CATEGORY_PNU, INSERT_GAP_MERGE_A, INSERT_GAP_MERGE_B,
+        INSERT_GAP_SPLIT_C, INSERT_GAP_SPLIT_D, INSERT_OVERLAP_E, INSERT_OVERLAP_F,
+        INSERT_DIFFERENT_NAME_G, INSERT_DIFFERENT_NAME_H})
+    @Sql(statements = DELETE_MULTI_CATEGORY_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void gap이_90일_이내인_같은_가게의_다른_업종_레코드는_하나의_재직으로_병합된다() {
+        Site site = tenancyQueryService.findSiteWithUnits(MULTI_CATEGORY_PNU).orElseThrow();
+        Unit unit = site.units().stream().filter(u -> u.label().equals("1층 101호")).findFirst().orElseThrow();
+
+        assertThat(unit.tenancies()).hasSize(1);
+        Tenancy merged = unit.tenancies().get(0);
+        assertThat(merged.period().licensedAt()).isEqualTo(java.time.LocalDate.of(2020, 1, 1));
+        assertThat(merged.period().closedAt()).isNull();
+        assertThat(merged.category()).isEqualTo("소매");
+        assertThat(merged.subCategory()).isEqualTo("즉석판매");
+        assertThat(merged.status()).isEqualTo("영업/정상");
+    }
+
+    @Test
+    @Sql(statements = {DELETE_MULTI_CATEGORY_PNU, INSERT_GAP_MERGE_A, INSERT_GAP_MERGE_B,
+        INSERT_GAP_SPLIT_C, INSERT_GAP_SPLIT_D, INSERT_OVERLAP_E, INSERT_OVERLAP_F,
+        INSERT_DIFFERENT_NAME_G, INSERT_DIFFERENT_NAME_H})
+    @Sql(statements = DELETE_MULTI_CATEGORY_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void gap이_90일_초과인_같은_가게_레코드는_별도_재직으로_유지된다() {
+        Site site = tenancyQueryService.findSiteWithUnits(MULTI_CATEGORY_PNU).orElseThrow();
+        Unit unit = site.units().stream().filter(u -> u.label().equals("2층 102호")).findFirst().orElseThrow();
+
+        assertThat(unit.tenancies()).hasSize(2);
+        assertThat(unit.tenancies()).extracting(t -> t.period().licensedAt())
+            .containsExactly(java.time.LocalDate.of(2018, 1, 1), java.time.LocalDate.of(2020, 1, 1));
+    }
+
+    @Test
+    @Sql(statements = {DELETE_MULTI_CATEGORY_PNU, INSERT_GAP_MERGE_A, INSERT_GAP_MERGE_B,
+        INSERT_GAP_SPLIT_C, INSERT_GAP_SPLIT_D, INSERT_OVERLAP_E, INSERT_OVERLAP_F,
+        INSERT_DIFFERENT_NAME_G, INSERT_DIFFERENT_NAME_H})
+    @Sql(statements = DELETE_MULTI_CATEGORY_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 기간이_완전히_겹치는_동시업종_레코드는_하나의_재직으로_병합된다() {
+        Site site = tenancyQueryService.findSiteWithUnits(MULTI_CATEGORY_PNU).orElseThrow();
+        Unit unit = site.units().stream().filter(u -> u.label().equals("3층 103호")).findFirst().orElseThrow();
+
+        assertThat(unit.tenancies()).hasSize(1);
+        Tenancy merged = unit.tenancies().get(0);
+        assertThat(merged.period().licensedAt()).isEqualTo(java.time.LocalDate.of(2021, 1, 1));
+        assertThat(merged.period().closedAt()).isNull();
+        assertThat(merged.category()).isEqualTo("소매");
+    }
+
+    @Test
+    @Sql(statements = {DELETE_MULTI_CATEGORY_PNU, INSERT_GAP_MERGE_A, INSERT_GAP_MERGE_B,
+        INSERT_GAP_SPLIT_C, INSERT_GAP_SPLIT_D, INSERT_OVERLAP_E, INSERT_OVERLAP_F,
+        INSERT_DIFFERENT_NAME_G, INSERT_DIFFERENT_NAME_H})
+    @Sql(statements = DELETE_MULTI_CATEGORY_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 같은_Unit이라도_businessName이_다르면_병합하지_않는다() {
+        Site site = tenancyQueryService.findSiteWithUnits(MULTI_CATEGORY_PNU).orElseThrow();
+        Unit unit = site.units().stream().filter(u -> u.label().equals("4층 104호")).findFirst().orElseThrow();
+
+        assertThat(unit.tenancies()).hasSize(2);
+        assertThat(unit.tenancies()).extracting(Tenancy::businessName)
+            .containsExactlyInAnyOrder("가게D-1", "가게D-2");
+    }
+
+    @Test
     void csv_동일_pnu의_상세주소를_지번주소별_물건으로_묶는다() {
         Site site = tenancyQueryService.findSiteWithUnits(CSV_ADDRESS_UNIT_PNU).orElseThrow();
 
         assertThat(site.coordinate()).isNotNull();
         // unitKey가 parsedUnitNo(있으면) 또는 parsedFloor 기준으로 바뀌어
         // 동일 jibunAddress이지만 다른 층/호실이 올바르게 분리되고, 호실번호가 같으면 층 표기 생략 차이는 병합된다
+        // businessName + gap 병합으로 인해 2개 tenancy 감소 (다중업종이면서 90일 이내 간격)
         assertThat(site.units()).hasSize(30);
-        assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(81);
+        assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(79);
         assertThat(site.units()).anySatisfy(unit -> assertThat(unit.tenancies()).hasSize(16));
         assertThat(site.units().stream()
             .flatMap(unit -> unit.tenancies().stream())
