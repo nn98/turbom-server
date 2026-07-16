@@ -39,9 +39,9 @@ class MarketInfoServiceTest {
     void 전체점포수와_업종구성도_함께_담는다() {
         when(sanggaApiClient.countInRadiusByCategory(127.14, 37.44, 300, "S2")).thenReturn(5);
         var items = List.of(
-            new SanggaStoreListResponse.SanggaStoreItem("I2", "음식"),
-            new SanggaStoreListResponse.SanggaStoreItem("I2", "음식"),
-            new SanggaStoreListResponse.SanggaStoreItem("S2", "수리·개인")
+            new SanggaStoreListResponse.SanggaStoreItem(null, "I2", "음식", null),
+            new SanggaStoreListResponse.SanggaStoreItem(null, "I2", "음식", null),
+            new SanggaStoreListResponse.SanggaStoreItem(null, "S2", "수리·개인", null)
         );
         when(sanggaApiClient.fetchRadiusSummary(127.14, 37.44, 300))
             .thenReturn(new SanggaStoreListResponse.SanggaBody(3, items));
