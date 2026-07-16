@@ -429,6 +429,6 @@ private String unitLabel(LicensedBusinessRecordEntity record) {
 
 | 케이스 | 현재 결과 | 이유 |
 |---|---|---|
-| `"1층 119호"` vs `"119호"` (층 생략) | 여전히 별도 Unit | parsedFloor 값 다름, 보정 불가 |
+| `"1층 119호"` vs `"119호"` (층 생략) | **해결됨(2026-07-16 추가 커밋)** — 같은 Unit으로 병합 | `unitKey()`를 unitNo 우선(unitNo 있으면 floor 무시)으로 변경. 실데이터(CSV_ADDRESS_UNIT_PNU) 기준 32→30 Unit으로 검증됨. `ponytail:` 주석대로 다른 건물에서 같은 호실번호가 우연히 겹치는 오탐 가능성은 남아있음 — 실사례 발견 시 buildingName 비중을 높여 보정 |
 | UNPARSED 범위 표기 `"410~416호"` vs `"410~421호"` | 별도 Unit | 같은 공간이지만 면적 변경 이력, 의도적 분리 |
 | 좌표 없는 일부 Site cross-PNU 중복 | 미처리 | 별도 이슈로 분리 |

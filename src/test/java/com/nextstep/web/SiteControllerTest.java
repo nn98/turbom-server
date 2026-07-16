@@ -141,7 +141,7 @@ class SiteControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.site.latitude").isNumber())
             .andExpect(jsonPath("$.site.longitude").isNumber())
-            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(32)))
+            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(30)))
             .andExpect(jsonPath("$.units[*].totalTenancyCount", org.hamcrest.Matchers.hasItem(16)))
             .andExpect(jsonPath("$.units[*].currentStatus",
                 org.hamcrest.Matchers.hasItems("영업", "공실")));

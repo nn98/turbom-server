@@ -142,7 +142,13 @@ public class TenancyQueryService {
             return detail != null ? normalize(detail) : "__unknown__";
         }
         // HIGH (NONE / REGEX): 구조화된 위치 속성 — jibunAddress 표현 무관하게 동일 층·호 병합
-        return record.getParsedFloor() + "::" + record.getParsedUnitNo() + "::" + record.getParsedBuildingName();
+        String unitNo = record.getParsedUnitNo();
+        if (unitNo != null) {
+            // ponytail: 호실번호가 있으면 층 표기 생략 차이는 무시(호실번호가 층을 함의). 다른 건물에서
+            // 같은 호실번호가 우연히 겹치면 오탐 가능 — 실사례 발견 시 buildingName 비중 높여 보정
+            return "UNIT::" + unitNo + "::" + record.getParsedBuildingName();
+        }
+        return "FLOOR::" + record.getParsedFloor() + "::" + record.getParsedBuildingName();
     }
 
     private String normalize(String value) {

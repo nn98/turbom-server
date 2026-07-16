@@ -37,6 +37,29 @@ class TenancyQueryServiceTest {
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 1, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 99 2층', "
             + "FALSE, TRUE, NULL, '2', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String FLOOR_OMITTED_PNU = "4113110100100970000";
+    private static final String DELETE_FLOOR_OMITTED_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + FLOOR_OMITTED_PNU + "'";
+    private static final String INSERT_FLOOR_OMITTED_WITH_FLOOR =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (990201, '4113110100100970000', '동물', '동물미용업', 'test-license-5', '층생략 1', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 3, 1층 119호 (테스트동)', '경기도 성남시 수정구 테스트동 97 1층 119호', "
+            + "FALSE, TRUE, NULL, '1', '119', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_FLOOR_OMITTED_WITHOUT_FLOOR =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (990202, '4113110100100970000', '동물', '동물병원', 'test-license-6', '층생략 2', "
+            + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
+            + "'경기도 성남시 수정구 테스트로 3, 119호 (테스트동)', '경기도 성남시 수정구 테스트동 97 119호', "
+            + "FALSE, TRUE, NULL, NULL, '119', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
     private static final String SAME_JIBUN_PNU = "4113110100100980000";
     private static final String CSV_ADDRESS_UNIT_PNU = "4113110800105590004";
     private static final String DELETE_SAME_JIBUN_PNU =
@@ -142,13 +165,24 @@ class TenancyQueryServiceTest {
     }
 
     @Test
+    @Sql(statements = {DELETE_FLOOR_OMITTED_PNU, INSERT_FLOOR_OMITTED_WITH_FLOOR, INSERT_FLOOR_OMITTED_WITHOUT_FLOOR})
+    @Sql(statements = DELETE_FLOOR_OMITTED_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 층이_생략된_레코드는_같은_호실번호면_병합된다() {
+        Site site = tenancyQueryService.findSiteWithUnits(FLOOR_OMITTED_PNU).orElseThrow();
+
+        assertThat(site.units()).hasSize(1);
+        assertThat(site.units().get(0).tenancies()).hasSize(2);
+        assertThat(site.units().get(0).label()).isEqualTo("1층 119호");
+    }
+
+    @Test
     void csv_동일_pnu의_상세주소를_지번주소별_물건으로_묶는다() {
         Site site = tenancyQueryService.findSiteWithUnits(CSV_ADDRESS_UNIT_PNU).orElseThrow();
 
         assertThat(site.coordinate()).isNotNull();
-        // unitKey가 parsedFloor::parsedUnitNo::parsedBuildingName 기준으로 바뀌어
-        // 동일 jibunAddress이지만 다른 층/호실이 올바르게 분리된다
-        assertThat(site.units()).hasSize(32);
+        // unitKey가 parsedUnitNo(있으면) 또는 parsedFloor 기준으로 바뀌어
+        // 동일 jibunAddress이지만 다른 층/호실이 올바르게 분리되고, 호실번호가 같으면 층 표기 생략 차이는 병합된다
+        assertThat(site.units()).hasSize(30);
         assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(81);
         assertThat(site.units()).anySatisfy(unit -> assertThat(unit.tenancies()).hasSize(16));
         assertThat(site.units().stream()
