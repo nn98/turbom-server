@@ -7,3 +7,5 @@ src/main/resources/data.sql
 .idea/
 application-local.yml
 .env.local
+__pycache__/
+*.pyc

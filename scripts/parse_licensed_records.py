@@ -8,6 +8,9 @@ from jibun_pnu import load_legaldong_codes, parse_pnu
 
 CHUNK_SIZE = 1000
 FILENAME_PATTERN = re.compile(r"^(?P<category>[^_]+)_(?P<sub_category>[^_]+)_[^_]+\.csv$")
+# ponytail: 이 프로젝트는 성남시 한정(CLAUDE.md 데이터축)이라 하드코딩. 다른 지역 파일이
+# 추가되면 파일명의 "지역" 세그먼트에서 유도하도록 확장.
+REGION_FILTER = "성남시"
 
 
 def derive_category(csv_path: str) -> tuple[str, str]:
@@ -71,9 +74,14 @@ def to_insert_row(record_id: int, pnu: str, row: dict, category: str, sub_catego
 
 def parse_file(csv_path: str, output_dir: str, start_id: int) -> None:
     category, sub_category = derive_category(csv_path)
-    legaldong_codes = load_legaldong_codes(
+    all_legaldong_codes = load_legaldong_codes(
         os.path.join(os.path.dirname(__file__), "legaldong_codes.csv")
     )
+    # 동 이름은 전국적으로 겹치는 경우가 흔하다(예: "태평동"이 성남시 외 4개 도시에도 존재).
+    # 지역으로 후보를 좁히지 않으면 엉뚱한 도시의 PNU가 나올 수 있어 반드시 스코프를 좁힌다.
+    legaldong_codes = {
+        name: code for name, code in all_legaldong_codes.items() if REGION_FILTER in name
+    }
 
     skip_reasons: Counter = Counter()
     rows: list[str] = []
