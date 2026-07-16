@@ -103,8 +103,13 @@ public class SiteQueryService {
             .toList().size();
         Double lat = site.coordinate() == null ? null : site.coordinate().latitude();
         Double lon = site.coordinate() == null ? null : site.coordinate().longitude();
+        String currentSubCategory = site.units().stream()
+            .flatMap(u -> u.currentTenancy().stream())
+            .map(Tenancy::subCategory)
+            .findFirst()
+            .orElse(null);
         return new SiteCandidateDto(site.pnu().value(), site.jibunAddress(), site.roadAddress(),
-            lat, lon, site.units().size(), closedCount);
+            lat, lon, site.units().size(), closedCount, currentSubCategory);
     }
 
     private SiteDto toSiteDto(Site site) {

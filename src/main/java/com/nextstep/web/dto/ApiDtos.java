@@ -8,8 +8,10 @@ public class ApiDtos {
     public record SearchResponse(List<SiteCandidateDto> candidates) {
     }
 
+    // currentSubCategory: 현재 영업 중인 업종 소분류. 전체 공실이면 null.
     public record SiteCandidateDto(String pnu, String jibunAddress, String roadAddress,
-                                    Double latitude, Double longitude, int unitCount, int closedCount) {
+                                    Double latitude, Double longitude, int unitCount, int closedCount,
+                                    String currentSubCategory) {
     }
 
     public record SiteDetailResponse(SiteDto site, List<UnitSummaryDto> units, DisclaimerDto disclaimer) {

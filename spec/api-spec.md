@@ -58,11 +58,17 @@
       "latitude": 37.4012,
       "longitude": 127.1045,
       "unitCount": 3,
-      "closedCount": 8
+      "closedCount": 8,
+      "currentSubCategory": "일반음식점"
     }
   ]
 }
 ```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| currentSubCategory | string\|null | 현재 영업 중인 첫 번째 물건의 인허가 소분류. 전체 공실이면 null. Sangga API 미호출 — 추가 지연 없음 |
+
 빈 결과: `{ "candidates": [] }` (200). query 누락: 400 `INVALID_QUERY`.
 
 ---
