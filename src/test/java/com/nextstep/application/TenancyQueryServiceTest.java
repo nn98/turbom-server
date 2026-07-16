@@ -208,7 +208,8 @@ class TenancyQueryServiceTest {
         var unitWithSite = tenancyQueryService.findUnitWithTenancies("4113110100100340000-U1");
         assertThat(unitWithSite).isPresent();
         Unit unit = unitWithSite.get().unit();
-        assertThat(unit.tenancies()).hasSize(4);
+        // 레코드 10497/11709('동물병원 더 하임', 동일 category='동물', 7일 간격)가 gap 병합되어 4 -> 3
+        assertThat(unit.tenancies()).hasSize(3);
         assertThat(unitWithSite.get().site().jibunAddress()).contains("신흥동");
     }
 
@@ -332,10 +333,10 @@ class TenancyQueryServiceTest {
         assertThat(site.coordinate()).isNotNull();
         // unitKey가 parsedUnitNo(있으면) 또는 parsedFloor 기준으로 바뀌어
         // 동일 jibunAddress이지만 다른 층/호실이 올바르게 분리되고, 호실번호가 같으면 층 표기 생략 차이는 병합된다
-        // businessName + gap 병합으로 인해 2개 tenancy 감소 (다중업종이면서 90일 이내 간격)
+        // businessName + gap(<=90일) 병합으로 인해 tenancy 수가 감소 (카테고리 동일 여부 무관, 79 -> 59)
         assertThat(site.units()).hasSize(30);
-        assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(79);
-        assertThat(site.units()).anySatisfy(unit -> assertThat(unit.tenancies()).hasSize(16));
+        assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(59);
+        assertThat(site.units()).anySatisfy(unit -> assertThat(unit.tenancies()).hasSize(21));
         assertThat(site.units().stream()
             .flatMap(unit -> unit.tenancies().stream())
             .map(tenancy -> tenancy.status())

@@ -100,10 +100,10 @@ class SiteControllerTest {
     void 물건상세는_타임라인과_marketInfo를_포함한다() throws Exception {
         mockMvc.perform(get("/api/units/4113110100100340000-U1"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(4)))
+            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(3)))
             .andExpect(jsonPath("$.timeline[0].status").value("취소/말소/만료/정지/중지"))
             .andExpect(jsonPath("$.timeline[0].marketInfo.isPlaceholder").value(true))
-            .andExpect(jsonPath("$.statistics.totalTenancyCount").value(4));
+            .andExpect(jsonPath("$.statistics.totalTenancyCount").value(3));
     }
 
     @Test
@@ -142,7 +142,7 @@ class SiteControllerTest {
             .andExpect(jsonPath("$.site.latitude").isNumber())
             .andExpect(jsonPath("$.site.longitude").isNumber())
             .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(30)))
-            .andExpect(jsonPath("$.units[*].totalTenancyCount", org.hamcrest.Matchers.hasItem(16)))
+            .andExpect(jsonPath("$.units[*].totalTenancyCount", org.hamcrest.Matchers.hasItem(21)))
             .andExpect(jsonPath("$.units[*].currentStatus",
                 org.hamcrest.Matchers.hasItems("영업", "공실")));
     }

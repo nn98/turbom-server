@@ -114,20 +114,7 @@ public class TenancyQueryService {
             .collect(Collectors.groupingBy(LicensedBusinessRecordEntity::getBusinessName, LinkedHashMap::new, Collectors.toList()));
 
         return byBusinessName.values().stream()
-            .flatMap(sameNameRecords -> {
-                // Only apply gap merge if there are multiple categories (multi-category)
-                var categories = sameNameRecords.stream()
-                    .map(LicensedBusinessRecordEntity::getCategory)
-                    .collect(Collectors.toSet());
-
-                if (categories.size() == 1) {
-                    // Single category: don't merge by gap, treat each record as separate tenancy
-                    return sameNameRecords.stream().map(List::of);
-                } else {
-                    // Multiple categories: use gap merge logic
-                    return mergeByGap(sameNameRecords).stream();
-                }
-            })
+            .flatMap(sameNameRecords -> mergeByGap(sameNameRecords).stream())
             .map(this::toTenancy)
             .sorted(Comparator.comparing(t -> t.period().licensedAt()))
             .toList();
