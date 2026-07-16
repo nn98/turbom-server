@@ -142,6 +142,7 @@ class SiteControllerTest {
             .andExpect(jsonPath("$.site.latitude").isNumber())
             .andExpect(jsonPath("$.site.longitude").isNumber())
             .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(30)))
+            // 21 = "단일(상세주소불명)" 캐치올 Unit의 병합 후 개수 (병합 전 값보다 작아진 것, 다른 Unit이 늘어난 게 아님)
             .andExpect(jsonPath("$.units[*].totalTenancyCount", org.hamcrest.Matchers.hasItem(21)))
             .andExpect(jsonPath("$.units[*].currentStatus",
                 org.hamcrest.Matchers.hasItems("영업", "공실")));

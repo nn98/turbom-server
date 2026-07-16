@@ -336,6 +336,8 @@ class TenancyQueryServiceTest {
         // businessName + gap(<=90일) 병합으로 인해 tenancy 수가 감소 (카테고리 동일 여부 무관, 79 -> 59)
         assertThat(site.units()).hasSize(30);
         assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(59);
+        // 21은 "단일(상세주소불명)" 캐치올 Unit 몫 — 병합 전엔 더 컸다가 gap 병합으로 21까지 줄어든 것이지,
+        // 다른 Unit의 개수가 늘어난 게 아님(Unit별 tenancy 수는 병합 조건이 느슨해질수록 단조감소)
         assertThat(site.units()).anySatisfy(unit -> assertThat(unit.tenancies()).hasSize(21));
         assertThat(site.units().stream()
             .flatMap(unit -> unit.tenancies().stream())
