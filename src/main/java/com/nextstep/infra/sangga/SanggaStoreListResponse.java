@@ -13,6 +13,6 @@ public record SanggaStoreListResponse(SanggaHeader header, SanggaBody body) {
     public record SanggaBody(Integer totalCount, List<SanggaStoreItem> items) {
     }
 
-    public record SanggaStoreItem(String indsLclsCd, String indsLclsNm) {
+    public record SanggaStoreItem(String bizesNm, String indsLclsCd, String indsLclsNm, String indsSclsNm) {
     }
 }

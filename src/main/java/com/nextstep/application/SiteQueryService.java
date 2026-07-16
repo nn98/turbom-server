@@ -7,24 +7,30 @@ import com.nextstep.domain.market.MarketInfo;
 import com.nextstep.domain.site.Site;
 import com.nextstep.domain.tenancy.Tenancy;
 import com.nextstep.domain.unit.Unit;
+import com.nextstep.infra.sangga.SanggaApiClient;
 import com.nextstep.web.dto.ApiDtos.*;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class SiteQueryService {
 
     private static final String DISCLAIMER_NOTE = "인허가 신고 기준 데이터로 실제 영업 현황과 차이가 있을 수 있습니다.";
+    private static final int ENRICHMENT_RADIUS_METERS = 300;
 
     private final TenancyQueryService tenancyQueryService;
     private final MarketInfoService marketInfoService;
+    private final SanggaApiClient sanggaApiClient;
 
-    public SiteQueryService(TenancyQueryService tenancyQueryService, MarketInfoService marketInfoService) {
+    public SiteQueryService(TenancyQueryService tenancyQueryService, MarketInfoService marketInfoService,
+                             SanggaApiClient sanggaApiClient) {
         this.tenancyQueryService = tenancyQueryService;
         this.marketInfoService = marketInfoService;
+        this.sanggaApiClient = sanggaApiClient;
     }
 
     public SearchResponse search(String query) {
@@ -41,8 +47,12 @@ public class SiteQueryService {
         Site site = tenancyQueryService.findSiteWithUnits(pnu)
             .orElseThrow(() -> new SiteNotFoundException(pnu));
 
+        Double lat = site.coordinate() == null ? null : site.coordinate().latitude();
+        Double lon = site.coordinate() == null ? null : site.coordinate().longitude();
+        Map<String, String> storeDetails = lookupStoreDetails(lon, lat);
+
         List<UnitSummaryDto> units = site.units().stream()
-            .map(this::toUnitSummaryDto)
+            .map(unit -> toUnitSummaryDto(unit, storeDetails))
             .sorted(Comparator.comparingInt(UnitSummaryDto::closedCount).reversed())
             .toList();
 
@@ -63,9 +73,10 @@ public class SiteQueryService {
         Double lon = site.coordinate() == null ? null : site.coordinate().longitude();
 
         var marketInfo = marketInfoService.fetch(site.pnu().value(), lon, lat, representativeSubCategory);
+        Map<String, String> storeDetails = lookupStoreDetails(lon, lat);
 
         List<TenancyDto> timeline = unit.tenancies().stream()
-            .map(t -> toTenancyDto(t, marketInfo))
+            .map(t -> toTenancyDto(t, marketInfo, storeDetails))
             .toList();
 
         UnitDto unitDto = new UnitDto(unit.unitId(), unit.label(), site.jibunAddress(), site.roadAddress(),
@@ -73,6 +84,16 @@ public class SiteQueryService {
         UnitStatisticsDto statisticsDto = toStatisticsDto(unit);
 
         return new UnitDetailResponse(unitDto, statisticsDto, timeline, disclaimer());
+    }
+
+    private Map<String, String> lookupStoreDetails(Double lon, Double lat) {
+        if (lon == null || lat == null) return Map.of();
+        return sanggaApiClient.lookupStoreDetails(lon, lat, ENRICHMENT_RADIUS_METERS);
+    }
+
+    private String lookupIndustryDetail(String businessName, Map<String, String> storeDetails) {
+        if (businessName == null || storeDetails.isEmpty()) return null;
+        return storeDetails.get(businessName.trim().toLowerCase());
     }
 
     private SiteCandidateDto toCandidateDto(Site site) {
@@ -92,11 +113,13 @@ public class SiteQueryService {
         return new SiteDto(site.pnu().value(), site.jibunAddress(), site.roadAddress(), lat, lon);
     }
 
-    private UnitSummaryDto toUnitSummaryDto(Unit unit) {
+    private UnitSummaryDto toUnitSummaryDto(Unit unit, Map<String, String> storeDetails) {
         var stats = unit.statistics();
         String currentBusinessName = unit.currentTenancy().map(Tenancy::businessName).orElse(null);
         String currentStatus = unit.currentTenancy().isPresent() ? "영업" : "공실";
-        String industryDetail = unit.currentTenancy().map(Tenancy::industryDetail).orElse(null);
+        String industryDetail = unit.currentTenancy()
+            .map(t -> lookupIndustryDetail(t.businessName(), storeDetails))
+            .orElse(null);
         return new UnitSummaryDto(unit.unitId(), unit.label(), currentBusinessName, currentStatus,
             stats.totalTenancyCount(), stats.closedCount(), stats.averageSurvivalMonths(),
             industryDetail, unit.locationSource().dbValue(),
@@ -109,7 +132,7 @@ public class SiteQueryService {
             stats.longestSurvivalMonths(), stats.shortestSurvivalMonths());
     }
 
-    private TenancyDto toTenancyDto(Tenancy tenancy, MarketInfo marketInfo) {
+    private TenancyDto toTenancyDto(Tenancy tenancy, MarketInfo marketInfo, Map<String, String> storeDetails) {
         List<CategoryCountDto> categoryBreakdown = marketInfo.categoryBreakdown().stream()
             .map(c -> new CategoryCountDto(c.code(), c.name(), c.count(), c.ratio()))
             .toList();
@@ -119,10 +142,14 @@ public class SiteQueryService {
             MarketInfo.VACANCY_RATE_PERCENT, marketInfo.asOf(),
             marketInfo.totalStoreCount(), categoryBreakdown);
 
+        // 폐업 이력은 Sangga API에 없으므로 원천적으로 null; 영업 중이면 이름 매칭 시도
+        String industryDetail = tenancy.isActive() ? lookupIndustryDetail(tenancy.businessName(), storeDetails) : null;
+        String enrichmentSource = industryDetail != null ? "sangga_api" : tenancy.enrichmentSource();
+
         return new TenancyDto("t-" + tenancy.id(), tenancy.businessName(), tenancy.category(), tenancy.subCategory(),
-            tenancy.industryDetail(), tenancy.period().licensedAt(), tenancy.period().closedAt(),
+            industryDetail, tenancy.period().licensedAt(), tenancy.period().closedAt(),
             tenancy.displayStatus(), tenancy.survivalMonths(), tenancy.closedAtEstimated(),
-            tenancy.enrichmentSource(), marketInfoDto);
+            enrichmentSource, marketInfoDto);
     }
 
     private DisclaimerDto disclaimer() {

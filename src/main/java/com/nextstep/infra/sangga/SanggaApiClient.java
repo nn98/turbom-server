@@ -7,6 +7,8 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 public class SanggaApiClient {
@@ -58,6 +60,29 @@ public class SanggaApiClient {
             return 0;
         }
         return response.body().totalCount();
+    }
+
+    /**
+     * 반경 내 업소를 가져와 bizesNm(소문자 트림) → indsSclsNm 룩업 맵을 반환한다.
+     * 서비스키 없거나 API 실패 시 빈 맵 반환 — 호출 측은 null 없음을 보장받는다.
+     */
+    public Map<String, String> lookupStoreDetails(double lon, double lat, int radiusMeters) {
+        if (properties.serviceKey() == null || properties.serviceKey().isBlank()) {
+            return Map.of();
+        }
+        try {
+            var body = fetchRadiusSummary(lon, lat, radiusMeters);
+            if (body.items() == null || body.items().isEmpty()) return Map.of();
+            return body.items().stream()
+                .filter(item -> item.bizesNm() != null && item.indsSclsNm() != null)
+                .collect(Collectors.toMap(
+                    item -> item.bizesNm().trim().toLowerCase(),
+                    SanggaStoreListResponse.SanggaStoreItem::indsSclsNm,
+                    (a, b) -> a
+                ));
+        } catch (Exception e) {
+            return Map.of();
+        }
     }
 
     /**
