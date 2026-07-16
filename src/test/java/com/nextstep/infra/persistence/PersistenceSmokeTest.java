@@ -13,7 +13,7 @@ class PersistenceSmokeTest {
 
     @Test
     void 시드_데이터가_전부_로드된다() {
-        assertThat(recordRepository.count()).isEqualTo(84_254);
+        assertThat(recordRepository.count()).isEqualTo(91_772);
     }
 
     @Test
@@ -28,7 +28,7 @@ class PersistenceSmokeTest {
     @Test
     void 주소로_csv_원본행을_검색한다() {
         List<LicensedBusinessRecordEntity> records = recordRepository.searchByAddress("신흥동");
-        assertThat(records).hasSize(2_901);
+        assertThat(records).hasSize(3_410);
         assertThat(records).extracting(LicensedBusinessRecordEntity::getPnu)
             .contains("4113110100100340000", "4113110100100300002");
     }
