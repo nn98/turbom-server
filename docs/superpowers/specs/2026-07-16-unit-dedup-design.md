@@ -9,12 +9,31 @@
 
 같은 PNU(필지) 안에서 동일한 물리적 공간이 상세주소 표현 방식 차이로 복수의 Unit으로 나타난다.
 
-예시 (동일 PNU, 동일 공간):
-- `"창곡동 543"` (상세 미입력)
-- `"창곡동 543 1층 101호"` (상세 입력)
-- `"창곡동 543 1 층 101 호"` (띄어쓰기 변형)
+### 실제 데이터 예시 — PNU `4113110800105090000` (창곡동 509, 위례중앙타워)
 
-현재 `unitKey = normalize(jibunAddress)` 기준이므로 위 세 레코드가 각각 별도 Unit으로 집계된다.
+이 PNU 단일 필지에 **470개 레코드 / 249개 고유 jibunAddress** 가 존재한다.  
+동일 필지·동일 호실이 아래처럼 제각각 입력된 것이 원인:
+
+| jibunAddress (원본) | 실제 의미 | 현재 unitKey |
+|---|---|---|
+| `"창곡동 509 위례중앙역 중앙타워 703호"` | 703호 | A |
+| `"창곡동 509번지 위례중앙역 중앙타워 703호"` | 703호 (번지 표기 차이) | B (≠ A) |
+| `"창곡동 509번지 중앙타워 708호"` | 708호 | C |
+| `"창곡동 509 위례중앙역 중앙타워 1층 119호"` | 1층 119호 | D |
+| `"창곡동 509 위례중앙역 중앙타워 119호"` | 1층 119호 (층 생략) | E (≠ D) |
+| `"창곡동 509 창곡동 509번지 지하1층 B19호"` | 지하1층 B19호 (주소 중복) | F |
+| `"창곡동 509 "` | 상세불명 | G |
+| `"창곡동 509"` | 상세불명 (trailing space) | H (normalize 후 = G) |
+
+→ 동일 호실 A·B, D·E 등이 별도 Unit으로 분리되고, **검색 결과 unitCount=255 / 상세조회 500 에러** 발생.
+
+### 500 에러 근본 원인 (부수 버그)
+
+대형 빌딩 레코드 중 일부는 `licensedAt=null` 또는 `closedAt < licensedAt` 인 불량 데이터를 포함한다.  
+`TenancyPeriod` 생성자가 이를 `IllegalArgumentException`으로 throw → `GlobalExceptionHandler`가  
+스택트레이스 없이 삼켜 500 반환. 레코드가 많을수록 해당 레코드를 만날 확률이 높아진다.
+
+현재 `unitKey = normalize(jibunAddress)` 기준이므로 위 케이스들이 각각 별도 Unit으로 집계된다.
 
 ---
 
@@ -84,6 +103,8 @@ key = normalize(extractDetail(jibunAddress))
 |---|---|
 | `TenancyQueryService.java` | `unitKey()` 로직 교체, `unitLabel()` 텍스트 수정 |
 | `TenancyQueryServiceTest.java` (신규) | 상세주소 변형 레코드 → 1 Unit 집계 검증 |
+| `TenancyPeriod.java` | `licensedAt=null` / `closedAt<licensedAt` 불량 데이터 방어 처리 |
+| `GlobalExceptionHandler.java` | 예상치 못한 예외 로깅 추가 (500 디버깅 가능하게) |
 
 ---
 
