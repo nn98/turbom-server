@@ -19,8 +19,8 @@ class TenancyPeriodTest {
     }
 
     @Test
-    void 폐업일이_인허가일보다_빠르면_예외() {
-        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
-            () -> new TenancyPeriod(LocalDate.of(2020, 1, 1), LocalDate.of(2019, 1, 1)));
+    void 폐업일이_인허가일보다_빠르면_closedAt이_null로_보정된다() {
+        TenancyPeriod period = new TenancyPeriod(LocalDate.of(2020, 1, 1), LocalDate.of(2019, 1, 1));
+        assertThat(period.closedAt()).isNull();
     }
 }

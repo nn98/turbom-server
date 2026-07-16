@@ -53,12 +53,16 @@ public class TenancyQueryService {
         List<LicensedBusinessRecordEntity> records = recordRepository.findByPnuOrderByLicensedAtAscIdAsc(unitReference.get().pnu());
         if (records.isEmpty()) return Optional.empty();
 
-        List<UnitGroup> groups = unitGroups(unitReference.get().pnu(), records);
+        List<UnitGroup> groups = unitGroups(unitReference.get().pnu(), validRecords(records));
         int groupIndex = unitReference.get().index() - 1;
         if (groupIndex < 0 || groupIndex >= groups.size()) return Optional.empty();
 
         UnitGroup group = groups.get(groupIndex);
         return Optional.of(new UnitWithSite(toUnit(group), toSiteWithoutUnits(group.records())));
+    }
+
+    private List<LicensedBusinessRecordEntity> validRecords(List<LicensedBusinessRecordEntity> records) {
+        return records.stream().filter(r -> r.getLicensedAt() != null).toList();
     }
 
     private List<Site> assembleSites(List<LicensedBusinessRecordEntity> records) {
@@ -72,15 +76,17 @@ public class TenancyQueryService {
     }
 
     private Site toSite(List<LicensedBusinessRecordEntity> records) {
-        LicensedBusinessRecordEntity representative = records.get(0);
+        List<LicensedBusinessRecordEntity> valid = validRecords(records);
+        LicensedBusinessRecordEntity representative = valid.isEmpty() ? records.get(0) : valid.get(0);
         return new Site(new Pnu(representative.getPnu()), representative.getJibunAddress(),
             representative.getRoadAddress(), KoreanTmCoordinateConverter
                 .fromEpsg5174(representative.getOriginalX(), representative.getOriginalY())
-                .orElse(null), toUnits(representative.getPnu(), records));
+                .orElse(null), toUnits(representative.getPnu(), valid));
     }
 
     private Site toSiteWithoutUnits(List<LicensedBusinessRecordEntity> records) {
-        LicensedBusinessRecordEntity representative = records.get(0);
+        List<LicensedBusinessRecordEntity> valid = validRecords(records);
+        LicensedBusinessRecordEntity representative = valid.isEmpty() ? records.get(0) : valid.get(0);
         return new Site(new Pnu(representative.getPnu()), representative.getJibunAddress(),
             representative.getRoadAddress(), KoreanTmCoordinateConverter
                 .fromEpsg5174(representative.getOriginalX(), representative.getOriginalY())
@@ -130,7 +136,13 @@ public class TenancyQueryService {
     }
 
     private String unitKey(LicensedBusinessRecordEntity record) {
-        return normalize(record.getJibunAddress());
+        if (AddressDetailParser.CONFIDENCE_LOW.equals(record.getParseConfidence())) {
+            // UNPARSED: parsedBuildingName에 원본 상세 문자열이 저장됨
+            String detail = record.getParsedBuildingName();
+            return detail != null ? normalize(detail) : "__unknown__";
+        }
+        // HIGH (NONE / REGEX): 구조화된 위치 속성 — jibunAddress 표현 무관하게 동일 층·호 병합
+        return record.getParsedFloor() + "::" + record.getParsedUnitNo() + "::" + record.getParsedBuildingName();
     }
 
     private String normalize(String value) {
@@ -177,7 +189,7 @@ public class TenancyQueryService {
         if (buildingName != null) {
             return buildingName;
         }
-        return "단일 점포";
+        return "단일(상세주소불명)";
     }
 
     private record UnitGroup(String unitId, List<LicensedBusinessRecordEntity> records) {
