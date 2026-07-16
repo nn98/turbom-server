@@ -41,7 +41,7 @@
 - Produces: `jibun_pnu.load_legaldong_codes(csv_path: str) -> dict[str, str]` — 법정동명(전체 경로 문자열, 예: `"경기도 성남시 수정구 창곡동"`) → 10자리 법정동코드. `폐지` 상태 행은 제외.
 - Produces: `jibun_pnu.parse_pnu(jibun_address: str, legaldong_codes: dict[str, str]) -> str | None` — 지번주소 문자열과 법정동코드 딕셔너리를 받아 19자리 PNU 문자열 또는 실패 시 `None` 반환.
 
-- [ ] **Step 1: 법정동코드 참조 파일 확보**
+- [x] **Step 1: 법정동코드 참조 파일 확보**
 
 ```bash
 cd server/scripts
@@ -65,7 +65,7 @@ grep "성남시 수정구 창곡동" legaldong_codes.csv
 ```
 Expected: `4113110800,경기도 성남시 수정구 창곡동,존재` — 이 10자리(`4113110800`)가 기존 DB에 이미 적재된 PNU(예: `4113110800105090000`)의 앞 10자리와 일치해야 한다.
 
-- [ ] **Step 2: 실패하는 테스트 먼저**
+- [x] **Step 2: 실패하는 테스트 먼저**
 
 `server/scripts/test_jibun_pnu.py`:
 
@@ -142,7 +142,7 @@ def test_load_legaldong_codes_존재만_포함():
     assert "경기도 성남시 창곡동" not in codes
 ```
 
-- [ ] **Step 3: 테스트 실행 — 실패 확인**
+- [x] **Step 3: 테스트 실행 — 실패 확인**
 
 ```bash
 cd server/scripts
@@ -151,7 +151,7 @@ pytest test_jibun_pnu.py -v
 ```
 Expected: FAIL (`jibun_pnu` 모듈이 아직 없음 — `ModuleNotFoundError`)
 
-- [ ] **Step 4: 구현**
+- [x] **Step 4: 구현**
 
 `server/scripts/jibun_pnu.py`:
 
@@ -205,7 +205,7 @@ def parse_pnu(jibun_address: str, legaldong_codes: dict[str, str]) -> str | None
     return None
 ```
 
-- [ ] **Step 5: 테스트 실행 — 통과 확인**
+- [x] **Step 5: 테스트 실행 — 통과 확인**
 
 ```bash
 cd server/scripts
@@ -213,7 +213,7 @@ pytest test_jibun_pnu.py -v
 ```
 Expected: 11개 테스트 전부 PASS
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add server/scripts/legaldong_codes.csv server/scripts/jibun_pnu.py server/scripts/test_jibun_pnu.py
@@ -231,7 +231,7 @@ git commit -m "feat: add legal-dong code table and jibun-address-to-PNU parser"
 - Consumes: `jibun_pnu.load_legaldong_codes()`, `jibun_pnu.parse_pnu()` (Task 1)
 - Produces: 커맨드라인 스크립트. `python3 parse_licensed_records.py <csv_path> <output_dir> <start_id>` 형태로 실행하면 `<output_dir>`에 `licensed-business-records-NNN.sql` 청크를 생성하고, 표준출력에 스킵 사유별 카운트를 출력한다.
 
-- [ ] **Step 1: 구현**
+- [x] **Step 1: 구현**
 
 `server/scripts/parse_licensed_records.py`:
 
@@ -372,7 +372,7 @@ if __name__ == "__main__":
     parse_file(sys.argv[1], sys.argv[2], int(sys.argv[3]))
 ```
 
-- [ ] **Step 2: 컴파일 확인(문법 오류 없는지)**
+- [x] **Step 2: 컴파일 확인(문법 오류 없는지)**
 
 ```bash
 cd server/scripts
@@ -380,7 +380,7 @@ python3 -c "import parse_licensed_records"
 ```
 Expected: 에러 없이 종료
 
-- [ ] **Step 3: 커밋**
+- [x] **Step 3: 커밋**
 
 ```bash
 git add server/scripts/parse_licensed_records.py
@@ -395,7 +395,7 @@ git commit -m "feat: add CSV-to-SQL-chunk orchestration script for licensed reco
 - Modify: `server/src/main/resources/data/` (신규 SQL 청크 추가)
 - Test: 기존 `mvn test` 전체 스위트로 회귀 확인
 
-- [ ] **Step 1: 실행**
+- [x] **Step 1: 실행**
 
 ```bash
 cd server/scripts
@@ -406,7 +406,7 @@ python3 parse_licensed_records.py \
 ```
 Expected: 표준출력에 생성된 레코드 수와 스킵 사유별 카운트가 출력됨. 전체 8547건 중 대다수(설계 문서 근거로 90% 이상 추정)가 생성되고, `UNPARSEABLE_OR_DONG_NOT_FOUND`가 소수(수백 건 이내)여야 한다 — 만약 스킵 비율이 30%를 넘으면 파서 로직을 재검토해야 하므로 STOP하고 보고한다.
 
-- [ ] **Step 2: 생성된 SQL 문법 확인**
+- [x] **Step 2: 생성된 SQL 문법 확인**
 
 ```bash
 head -5 ../src/main/resources/data/licensed-business-records-086.sql
@@ -414,7 +414,7 @@ tail -5 ../src/main/resources/data/licensed-business-records-086.sql
 ```
 Expected: `INSERT INTO licensed_business_record (...) VALUES` 로 시작, `(102089, '4113...', ...)` 형태 행들, 마지막 행 뒤 `;`로 종료.
 
-- [ ] **Step 3: 전체 Java 테스트 회귀 확인**
+- [x] **Step 3: 전체 Java 테스트 회귀 확인**
 
 ```bash
 cd ..
@@ -422,7 +422,7 @@ mvn test
 ```
 Expected: BUILD SUCCESS, 기존 57개 테스트 전부 통과(새 레코드가 추가돼도 기존 PNU/유닛 개수를 검증하는 테스트는 영향받지 않아야 함 — 다른 PNU 대역이므로).
 
-- [ ] **Step 4: 실제 데이터 확인 — 샘플 조회**
+- [x] **Step 4: 실제 데이터 확인 — 샘플 조회**
 
 새로 적재된 PNU 하나를 골라 애플리케이션이 실제로 조회 가능한지 수동 확인:
 ```bash
@@ -430,7 +430,7 @@ grep -m1 "INSERT" ../src/main/resources/data/licensed-business-records-086.sql
 ```
 그 다음 줄에서 PNU 하나(예: `4113110100...`)를 추출해 기록해둔다 — 이후 로컬 서버 기동 테스트(별도 스코프) 때 `GET /api/sites/{pnu}`로 확인 가능.
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/main/resources/data/licensed-business-records-0*.sql
@@ -440,6 +440,14 @@ git commit -m "feat: ingest 기타_담배소매업_경기성남시 dataset into 
 
 ---
 
+## 실행 중 발견된 버그와 수정
+
+Task 3 최초 실행(구현자 서브에이전트) 결과에서 컨트롤러가 표본 PNU를 검증하다가 **동명 충돌 버그**를 발견했다: `parse_pnu()`(Task 1, 리뷰 통과된 코드)가 법정동명을 "시/도"까지 포함해 비교하지 않고 짧은 동 이름(`rsplit(" ", 1)[-1]`)만으로 전국 법정동코드 테이블에서 찾다 보니, 동명이 겹치는 다른 도시로 잘못 매칭되는 사례가 나왔다 — 예: "태평동" 레코드가 성남시가 아니라 전라북도 전주시 완산구로 배정됨. 성남시 48개 동 중 18개(37.5%, 정확히는 리프 레벨 동 44개 기준 18개=40.9%)가 전국 어딘가와 이름이 겹침이 확인됨.
+
+**수정**: Task 1의 `jibun_pnu.py`(범용 PNU 파서)는 건드리지 않고, Task 2의 `parse_licensed_records.py`에 `REGION_FILTER = "성남시"` 상수를 추가해 오케스트레이션 레이어에서 법정동코드 후보를 성남시로 좁혔다(성남시 내부엔 동명 충돌 0건 확인됨 — 완전히 안전한 필터). "이 프로젝트는 성남시 한정"이라는 정책은 파서가 아니라 오케스트레이션이 아는 게 맞다는 판단.
+
+**재검증**: 수정 후 재실행한 7,518건 전체의 PNU 앞 10자리를 `legaldong_codes.csv`와 전수 대조해 전부 실제 성남시 법정동코드임을 확인했고, 이후 독립 리뷰어가 다시 한번 처음부터 전부 재도출해 검증함(구 로직으로 성공했다가 새 로직에서 탈락한 170건을 전부 역추적해 전부 오배정이었음을 확인 등). 커밋: `83c66c7`(수정), `d1479b3`(재적재).
+
 ## 한계 및 후속 작업
 
 | 항목 | 상태 |
@@ -447,3 +455,5 @@ git commit -m "feat: ingest 기타_담배소매업_경기성남시 dataset into 
 | `parsed_floor`/`parsed_unit_no` 등 상세주소 파싱 | 이번 스코프 아님 — 기존 `AddressDetailParser`(Java, 도로명주소 기반)가 조회 시점 전에 별도 배치로 채워야 함 |
 | 스킵된 레코드(UNPARSEABLE_OR_DONG_NOT_FOUND) | 완전히 드롭됨, 별도 보관 안 함 — 필요 시 재작업 |
 | `parse_licensed_records.py`를 다른 LOCALDATA 포맷 파일에 재사용 | 컬럼 구조·상태값 형식이 파일마다 다를 수 있어 실행 전 헤더 diff 확인 필수 — 자동 스키마 감지는 안 함(YAGNI) |
+| `REGION_FILTER = "성남시"` 하드코딩 | 성남시 외 지역 파일이 추가되면 파일명의 "지역" 세그먼트에서 유도하도록 확장 필요 |
+| DB 제약조건(NOT NULL/CHECK) 사전 검증 없음 | 스크립트가 SQL을 생성하기 전에 미리 검사하지 않음 — 위반 시 `mvn test`의 Spring 컨텍스트 로딩 실패로 뒤늦게 드러남(이번 실행에선 위반 없었음). 향후 다른 파일 적재 시 유의 |
