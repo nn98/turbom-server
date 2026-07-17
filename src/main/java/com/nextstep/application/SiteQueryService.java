@@ -38,6 +38,7 @@ public class SiteQueryService {
             throw new InvalidQueryException();
         }
         List<SiteCandidateDto> candidates = tenancyQueryService.searchSites(query).stream()
+            .filter(site -> !site.units().isEmpty())
             .map(this::toCandidateDto)
             .toList();
         return new SearchResponse(candidates);

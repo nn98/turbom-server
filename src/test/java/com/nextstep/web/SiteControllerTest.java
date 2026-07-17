@@ -42,6 +42,18 @@ class SiteControllerTest {
             + "NULL, '영업/정상', '0000', '정상', '2021-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 7 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+    private static final String PURE_NO_STOREFRONT_PNU = "4113110100100960002";
+    private static final String DELETE_PURE_NO_STOREFRONT_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + PURE_NO_STOREFRONT_PNU + "'";
+    private static final String INSERT_PURE_NO_STOREFRONT =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (990701, '4113110100100960002', '생활', '통신판매업', 'test-license-42', '순수온라인셀러', "
+            + "NULL, '영업/정상', '0000', '정상', '2021-01-01', NULL, "
+            + "'경기도 성남시 수정구 검색전용테스트로 (검색전용테스트동)', '경기도 성남시 수정구 검색전용테스트동', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
     private static final String INSERT_DUPLICATE_UNIT_1 =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
@@ -89,12 +101,23 @@ class SiteControllerTest {
     void 신흥동으로_검색하면_후보가_나온다() throws Exception {
         mockMvc.perform(get("/api/sites/search").param("query", "신흥동"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(745)))
+            .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(707)))
             .andExpect(jsonPath("$.candidates[*].pnu",
                 org.hamcrest.Matchers.hasItems("4113110100100340000", "4113110100100300002")))
             .andExpect(jsonPath("$.candidates[0].pnu").exists())
             .andExpect(jsonPath("$.candidates[0].latitude").isNumber())
             .andExpect(jsonPath("$.candidates[0].longitude").isNumber());
+    }
+
+    @Test
+    @Sql(statements = {DELETE_PURE_NO_STOREFRONT_PNU, INSERT_PURE_NO_STOREFRONT})
+    @Sql(statements = DELETE_PURE_NO_STOREFRONT_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 무점포업종만_있는_자리는_검색결과에서_빠진다() throws Exception {
+        // 2026-07-18: units가 0개인 PNU가 검색/지도핀에는 그대로 노출되던 버그 — 실사례
+        // (금토동 390-11/436-3/517-7, 전부 고압가스업·통신판매업만 있는 자리)로 발견됨
+        mockMvc.perform(get("/api/sites/search").param("query", "검색전용테스트동"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(0)));
     }
 
     @Test
