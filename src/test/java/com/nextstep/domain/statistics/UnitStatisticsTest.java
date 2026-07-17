@@ -19,6 +19,11 @@ class UnitStatisticsTest {
             new TenancyPeriod(start, null), "영업/정상", "license_only");
     }
 
+    private Tenancy closedWithoutEndDate(LocalDate start) {
+        return new Tenancy(3L, "가게3", "생활", "통신판매업", null,
+            new TenancyPeriod(start, null), "취소/말소/만료/정지/중지", "license_only");
+    }
+
     @Test
     void 폐업_이력만으로_평균_최장_최단_생존월을_계산한다() {
         List<Tenancy> tenancies = List.of(
@@ -44,5 +49,20 @@ class UnitStatisticsTest {
         assertThat(stats.averageSurvivalMonths()).isNull();
         assertThat(stats.longestSurvivalMonths()).isNull();
         assertThat(stats.shortestSurvivalMonths()).isNull();
+    }
+
+    @Test
+    void 종료일_모르는_폐업이력은_closedCount엔_잡히지만_평균계산엔_빠진다() {
+        List<Tenancy> tenancies = List.of(
+            closed(LocalDate.of(2013, 5, 2), LocalDate.of(2017, 1, 10)),  // 44개월
+            closedWithoutEndDate(LocalDate.of(2017, 5, 15))
+        );
+
+        UnitStatistics stats = UnitStatistics.from(tenancies);
+
+        assertThat(stats.closedCount()).isEqualTo(2);
+        assertThat(stats.averageSurvivalMonths()).isEqualTo(44);
+        assertThat(stats.longestSurvivalMonths()).isEqualTo(44);
+        assertThat(stats.shortestSurvivalMonths()).isEqualTo(44);
     }
 }
