@@ -113,7 +113,7 @@ def test_성남시_행은_정상_처리됨(tmp_path, capsys):
     assert "seongnam-001" in chunk_files[0].read_text(encoding="utf-8")
 ```
 
-- [ ] **Step 2: 테스트 실행 — 실패 확인**
+- [x] **Step 2: 테스트 실행 — 실패 확인**
 
 ```bash
 cd server/scripts
@@ -161,7 +161,7 @@ SEONGNAM_GOV_CODE = "3780000"
             record_id += 1
 ```
 
-- [ ] **Step 4: 테스트 실행 — 통과 확인**
+- [x] **Step 4: 테스트 실행 — 통과 확인**
 
 ```bash
 cd server/scripts
@@ -169,7 +169,7 @@ pytest test_parse_licensed_records.py -v
 ```
 Expected: 이 파일의 4개 테스트 전부 PASS
 
-- [ ] **Step 5: 기존 회귀 확인**
+- [x] **Step 5: 기존 회귀 확인**
 
 이 스크립트가 Task 1(`jibun_pnu.py`)에 의존하므로 그쪽 테스트도 같이 통과하는지 확인:
 
@@ -179,7 +179,7 @@ pytest -v
 ```
 Expected: `test_jibun_pnu.py` 11개 + `test_parse_licensed_records.py` 4개, 총 15개 전부 PASS
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add server/scripts/parse_licensed_records.py server/scripts/test_parse_licensed_records.py
@@ -256,7 +256,7 @@ def test_이미_적재된_관리번호는_스킵됨(tmp_path, capsys):
     assert "DUPLICATE_LICENSE_NO: 1" in out
 ```
 
-- [ ] **Step 2: 테스트 실행 — 실패 확인**
+- [x] **Step 2: 테스트 실행 — 실패 확인**
 
 ```bash
 cd server/scripts
@@ -327,7 +327,7 @@ def load_existing_license_nos(data_dir: str) -> set[str]:
             record_id += 1
 ```
 
-- [ ] **Step 4: 테스트 실행 — 통과 확인**
+- [x] **Step 4: 테스트 실행 — 통과 확인**
 
 ```bash
 cd server/scripts
@@ -335,7 +335,7 @@ pytest test_parse_licensed_records.py -v
 ```
 Expected: 이 파일의 7개 테스트 전부 PASS
 
-- [ ] **Step 5: 전체 회귀 확인**
+- [x] **Step 5: 전체 회귀 확인**
 
 ```bash
 cd server/scripts
@@ -343,7 +343,7 @@ pytest -v
 ```
 Expected: `test_jibun_pnu.py` 11개 + `test_parse_licensed_records.py` 7개, 총 18개 전부 PASS
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add server/scripts/parse_licensed_records.py server/scripts/test_parse_licensed_records.py
