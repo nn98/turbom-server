@@ -202,6 +202,9 @@ class TenancyQueryServiceTest {
     private static final String CSV_ADDRESS_UNIT_PNU = "4113110800105590004";
     private static final String DELETE_SAME_JIBUN_PNU =
         "DELETE FROM licensed_business_record WHERE pnu = '" + SAME_JIBUN_PNU + "'";
+    // 2026-07-18: sub_category가 원래 '동물미용업'이었으나 무점포업종 목록에 편입되며(호실정보
+    // 없는 단독 레코드라 물리적 신호 전무) noStorefrontRegistrations로 빠져버려 '동물병원'으로
+    // 교체 — 이 테스트의 목적(도로명주소 표기 차이로 인한 과분할 방지)과는 무관한 업종이라 무해함
     private static final String INSERT_SAME_JIBUN_ROAD_1 =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
@@ -438,7 +441,7 @@ class TenancyQueryServiceTest {
         // 5는 "단일(상세주소불명)" 캐치올 Unit 몫 — 다른 Unit의 개수가 늘어난 게 아니라
         // 무점포업종만 있던 businessName들이 noStorefrontRegistrations로 옮겨가며 캐치올 Unit만 크게 줄었다
         assertThat(site.units()).anySatisfy(unit -> assertThat(unit.tenancies()).hasSize(5));
-        assertThat(site.noStorefrontRegistrations()).isNotEmpty();
+        assertThat(site.noStorefrontRegistrations()).hasSize(20);
         assertThat(site.units().stream()
             .flatMap(unit -> unit.tenancies().stream())
             .map(tenancy -> tenancy.status())

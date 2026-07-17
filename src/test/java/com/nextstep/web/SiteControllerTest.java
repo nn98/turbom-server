@@ -41,6 +41,10 @@ class SiteControllerTest {
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 1, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 99 2층', "
             + "FALSE, TRUE, NULL, '2', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    // 2026-07-18: sub_category가 원래 '의료기기판매(임대)업'이었으나 무점포업종 목록에 편입되며
+    // (호실정보 없는 단독 레코드라 물리적 신호 전무) noStorefrontRegistrations로 빠져 unit 자체가
+    // 사라져 404가 나던 걸 '의원'으로 교체 — 이 테스트 목적(상세영업상태 없을 때 원본값 그대로
+    // 응답)과는 무관한 업종이라 무해함
     private static final String INSERT_RAW_STATUS =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
