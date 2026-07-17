@@ -148,6 +148,56 @@ class TenancyQueryServiceTest {
             + "NULL, '영업/정상', '0000', '정상', '2020-06-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 4, 4층 104호 (테스트동)', '경기도 성남시 수정구 테스트동 96 4층 104호', "
             + "FALSE, TRUE, NULL, '4', '104', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String NO_STOREFRONT_PNU = "4113110100100950000";
+    private static final String DELETE_NO_STOREFRONT_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + NO_STOREFRONT_PNU + "'";
+    private static final String INSERT_NO_STOREFRONT_STOREFRONT_RECORD =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (990501, '4113110100100950000', '식품', '일반음식점', 'test-license-30', '일반음식점가게', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 6, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 96 1층', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_NO_STOREFRONT_ONLY_RECORD_1 =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (990502, '4113110100100950000', '생활', '통신판매업', 'test-license-31', '통신판매업체A', "
+            + "NULL, '영업/정상', '0000', '정상', '2021-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 6 (테스트동)', '경기도 성남시 수정구 테스트동 96', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_NO_STOREFRONT_ONLY_RECORD_2 =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (990503, '4113110100100950000', '생활', '방문판매업', 'test-license-32', '방문판매업체B', "
+            + "NULL, '영업/정상', '0000', '정상', '2022-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 6 (테스트동)', '경기도 성남시 수정구 테스트동 96', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+    // 같은 businessName("겸업사업자")이 매장업종(일반음식점) + 무점포후보업종(통신판매업)을
+    // 동시에 보유 — 물리적 신호가 하나라도 있으니 둘 다 storefront로 취급돼야 함(동물병원 더 하임 사례 재현)
+    private static final String INSERT_NO_STOREFRONT_MIXED_STOREFRONT =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
+            + "VALUES (990504, '4113110100100950000', '식품', '일반음식점', 'test-license-33', '겸업사업자', "
+            + "NULL, '영업/정상', '0000', '정상', '2023-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 6, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 96 2층', "
+            + "FALSE, TRUE, '2', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_NO_STOREFRONT_MIXED_NOSTOREFRONT =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (990505, '4113110100100950000', '생활', '통신판매업', 'test-license-34', '겸업사업자', "
+            + "NULL, '영업/정상', '0000', '정상', '2023-02-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 6 (테스트동)', '경기도 성남시 수정구 테스트동 96', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
     private static final String SAME_JIBUN_PNU = "4113110100100980000";
     private static final String CSV_ADDRESS_UNIT_PNU = "4113110800105590004";
     private static final String DELETE_SAME_JIBUN_PNU =
@@ -157,7 +207,7 @@ class TenancyQueryServiceTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990101, '4113110100100980000', '동물', '동물미용업', 'test-license-3', '동일지번 도로명1', "
+            + "VALUES (990101, '4113110100100980000', '동물', '동물병원', 'test-license-3', '동일지번 도로명1', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 2, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 98', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -327,6 +377,48 @@ class TenancyQueryServiceTest {
     }
 
     @Test
+    @Sql(statements = {DELETE_NO_STOREFRONT_PNU, INSERT_NO_STOREFRONT_STOREFRONT_RECORD,
+        INSERT_NO_STOREFRONT_ONLY_RECORD_1, INSERT_NO_STOREFRONT_ONLY_RECORD_2})
+    @Sql(statements = DELETE_NO_STOREFRONT_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 무점포업종만_있는_상호는_noStorefrontRegistrations로_분리된다() {
+        Site site = tenancyQueryService.findSiteWithUnits(NO_STOREFRONT_PNU).orElseThrow();
+
+        assertThat(site.units()).hasSize(1);
+        assertThat(site.units().get(0).tenancies()).extracting(Tenancy::businessName)
+            .containsExactly("일반음식점가게");
+
+        assertThat(site.noStorefrontRegistrations()).hasSize(2);
+        assertThat(site.noStorefrontRegistrations()).extracting(Tenancy::businessName)
+            .containsExactlyInAnyOrder("통신판매업체A", "방문판매업체B");
+    }
+
+    @Test
+    @Sql(statements = {DELETE_NO_STOREFRONT_PNU, INSERT_NO_STOREFRONT_MIXED_STOREFRONT,
+        INSERT_NO_STOREFRONT_MIXED_NOSTOREFRONT})
+    @Sql(statements = DELETE_NO_STOREFRONT_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 같은_상호가_매장업종과_무점포업종을_겸하면_전부_storefront로_취급된다() {
+        Site site = tenancyQueryService.findSiteWithUnits(NO_STOREFRONT_PNU).orElseThrow();
+
+        assertThat(site.noStorefrontRegistrations()).isEmpty();
+        int totalTenancies = site.units().stream().mapToInt(u -> u.tenancies().size()).sum();
+        assertThat(totalTenancies).isEqualTo(2);
+        assertThat(site.units().stream().flatMap(u -> u.tenancies().stream()))
+            .extracting(Tenancy::businessName)
+            .containsOnly("겸업사업자");
+    }
+
+    @Test
+    @Sql(statements = {DELETE_NO_STOREFRONT_PNU, INSERT_NO_STOREFRONT_ONLY_RECORD_1,
+        INSERT_NO_STOREFRONT_ONLY_RECORD_2})
+    @Sql(statements = DELETE_NO_STOREFRONT_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 전부_무점포업종이면_units는_빈배열이다() {
+        Site site = tenancyQueryService.findSiteWithUnits(NO_STOREFRONT_PNU).orElseThrow();
+
+        assertThat(site.units()).isEmpty();
+        assertThat(site.noStorefrontRegistrations()).hasSize(2);
+    }
+
+    @Test
     void csv_동일_pnu의_상세주소를_지번주소별_물건으로_묶는다() {
         Site site = tenancyQueryService.findSiteWithUnits(CSV_ADDRESS_UNIT_PNU).orElseThrow();
 
@@ -334,11 +426,16 @@ class TenancyQueryServiceTest {
         // unitKey가 parsedUnitNo(있으면) 또는 parsedFloor 기준으로 바뀌어
         // 동일 jibunAddress이지만 다른 층/호실이 올바르게 분리되고, 호실번호가 같으면 층 표기 생략 차이는 병합된다
         // businessName + gap(<=90일) 병합으로 인해 tenancy 수가 감소 (카테고리 동일 여부 무관, 79 -> 59)
+        // 2026-07-18: businessName 단위 무점포업종 분리(Task 2) 도입으로 59 -> 39, 아래 21 -> 5로 추가 감소.
+        // 캐치올 Unit("단일(상세주소불명)")은 애초에 parsedFloor/parsedUnitNo가 없는 레코드들이라
+        // 무점포 후보 subCategory와 함께 물리적 신호가 없는 businessName 비율이 높아 감소폭이 가장 큼.
+        // 39 - 5 = noStorefrontRegistrations(20)로 옮겨간 레코드 수와 정합(59-39=20).
         assertThat(site.units()).hasSize(30);
-        assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(59);
-        // 21은 "단일(상세주소불명)" 캐치올 Unit 몫 — 병합 전엔 더 컸다가 gap 병합으로 21까지 줄어든 것이지,
-        // 다른 Unit의 개수가 늘어난 게 아님(Unit별 tenancy 수는 병합 조건이 느슨해질수록 단조감소)
-        assertThat(site.units()).anySatisfy(unit -> assertThat(unit.tenancies()).hasSize(21));
+        assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(39);
+        // 5는 "단일(상세주소불명)" 캐치올 Unit 몫 — 다른 Unit의 개수가 늘어난 게 아니라
+        // 무점포업종만 있던 businessName들이 noStorefrontRegistrations로 옮겨가며 캐치올 Unit만 크게 줄었다
+        assertThat(site.units()).anySatisfy(unit -> assertThat(unit.tenancies()).hasSize(5));
+        assertThat(site.noStorefrontRegistrations()).isNotEmpty();
         assertThat(site.units().stream()
             .flatMap(unit -> unit.tenancies().stream())
             .map(tenancy -> tenancy.status())

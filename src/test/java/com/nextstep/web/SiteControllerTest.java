@@ -142,8 +142,9 @@ class SiteControllerTest {
             .andExpect(jsonPath("$.site.latitude").isNumber())
             .andExpect(jsonPath("$.site.longitude").isNumber())
             .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(30)))
-            // 21 = "단일(상세주소불명)" 캐치올 Unit의 병합 후 개수 (병합 전 값보다 작아진 것, 다른 Unit이 늘어난 게 아님)
-            .andExpect(jsonPath("$.units[*].totalTenancyCount", org.hamcrest.Matchers.hasItem(21)))
+            // 5 = 캐치올 Unit의 병합 후 개수. 2026-07-18: businessName 단위 무점포업종 분리(Task 2)로
+            // 20건이 noStorefrontRegistrations로 이동하며 21 -> 5로 감소 (다른 Unit이 늘어난 게 아님)
+            .andExpect(jsonPath("$.units[*].totalTenancyCount", org.hamcrest.Matchers.hasItem(5)))
             .andExpect(jsonPath("$.units[*].currentStatus",
                 org.hamcrest.Matchers.hasItems("영업", "공실")));
     }

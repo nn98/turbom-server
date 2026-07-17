@@ -1,6 +1,7 @@
 package com.nextstep.application;
 
 import com.nextstep.domain.site.AddressDetailParser;
+import com.nextstep.domain.site.NoStorefrontSubCategories;
 import com.nextstep.domain.site.Pnu;
 import com.nextstep.domain.site.Site;
 import com.nextstep.domain.tenancy.Tenancy;
@@ -81,10 +82,12 @@ public class TenancyQueryService {
     private Site toSite(List<LicensedBusinessRecordEntity> records) {
         List<LicensedBusinessRecordEntity> valid = validRecords(records);
         LicensedBusinessRecordEntity representative = valid.isEmpty() ? records.get(0) : valid.get(0);
+        Map<Boolean, List<LicensedBusinessRecordEntity>> partitioned = partitionByStorefront(valid);
         return new Site(new Pnu(representative.getPnu()), representative.getJibunAddress(),
             representative.getRoadAddress(), KoreanTmCoordinateConverter
                 .fromEpsg5174(representative.getOriginalX(), representative.getOriginalY())
-                .orElse(null), toUnits(representative.getPnu(), valid));
+                .orElse(null), toUnits(representative.getPnu(), partitioned.get(true)),
+            mergedTenancies(partitioned.get(false)));
     }
 
     private Site toSiteWithoutUnits(List<LicensedBusinessRecordEntity> records) {
@@ -93,13 +96,39 @@ public class TenancyQueryService {
         return new Site(new Pnu(representative.getPnu()), representative.getJibunAddress(),
             representative.getRoadAddress(), KoreanTmCoordinateConverter
                 .fromEpsg5174(representative.getOriginalX(), representative.getOriginalY())
-                .orElse(null), List.of());
+                .orElse(null), List.of(), List.of());
     }
 
     private List<Unit> toUnits(String pnu, List<LicensedBusinessRecordEntity> records) {
         return unitGroups(pnu, records).stream()
             .map(this::toUnit)
             .toList();
+    }
+
+    private Map<Boolean, List<LicensedBusinessRecordEntity>> partitionByStorefront(
+        List<LicensedBusinessRecordEntity> records
+    ) {
+        Map<String, List<LicensedBusinessRecordEntity>> byBusinessName = records.stream()
+            .collect(Collectors.groupingBy(LicensedBusinessRecordEntity::getBusinessName, LinkedHashMap::new, Collectors.toList()));
+
+        List<LicensedBusinessRecordEntity> storefront = new ArrayList<>();
+        List<LicensedBusinessRecordEntity> noStorefront = new ArrayList<>();
+        for (List<LicensedBusinessRecordEntity> group : byBusinessName.values()) {
+            (hasPhysicalSignal(group) ? storefront : noStorefront).addAll(group);
+        }
+
+        Map<Boolean, List<LicensedBusinessRecordEntity>> result = new LinkedHashMap<>();
+        result.put(true, storefront);
+        result.put(false, noStorefront);
+        return result;
+    }
+
+    private boolean hasPhysicalSignal(List<LicensedBusinessRecordEntity> businessRecords) {
+        return businessRecords.stream().anyMatch(r ->
+            !NoStorefrontSubCategories.isNoStorefront(r.getCategory(), r.getSubCategory())
+                || r.getParsedFloor() != null
+                || r.getParsedUnitNo() != null
+        );
     }
 
     private Unit toUnit(UnitGroup group) {
