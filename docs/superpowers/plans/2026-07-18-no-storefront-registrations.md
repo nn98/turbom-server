@@ -42,7 +42,7 @@
 **Interfaces:**
 - Produces: `NoStorefrontSubCategories.isNoStorefront(String category, String subCategory) -> boolean`. Task 2가 이 메서드를 쓴다.
 
-- [ ] **Step 1: 실패하는 테스트 먼저**
+- [x] **Step 1: 실패하는 테스트 먼저**
 
 `src/test/java/com/nextstep/domain/site/NoStorefrontSubCategoriesTest.java`:
 
@@ -94,14 +94,14 @@ class NoStorefrontSubCategoriesTest {
 }
 ```
 
-- [ ] **Step 2: 테스트 실행 — 실패 확인**
+- [x] **Step 2: 테스트 실행 — 실패 확인**
 
 ```
 mvn test -Dtest=NoStorefrontSubCategoriesTest -q
 ```
 Expected: FAIL (`NoStorefrontSubCategories` 클래스가 아직 없음 — 컴파일 에러)
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 `src/main/java/com/nextstep/domain/site/NoStorefrontSubCategories.java`:
 
@@ -188,14 +188,14 @@ public final class NoStorefrontSubCategories {
 }
 ```
 
-- [ ] **Step 4: 테스트 실행 — 통과 확인**
+- [x] **Step 4: 테스트 실행 — 통과 확인**
 
 ```
 mvn test -Dtest=NoStorefrontSubCategoriesTest -q
 ```
 Expected: 8개 테스트 전부 PASS
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/main/java/com/nextstep/domain/site/NoStorefrontSubCategories.java \
@@ -319,7 +319,7 @@ git commit -m "feat: add classification for no-storefront/self-reported subcateg
     }
 ```
 
-- [ ] **Step 2: 테스트 실행 — 실패 확인**
+- [x] **Step 2: 테스트 실행 — 실패 확인**
 
 ```
 mvn test -Dtest=TenancyQueryServiceTest -q
@@ -407,14 +407,14 @@ import com.nextstep.domain.site.NoStorefrontSubCategories;
     }
 ```
 
-- [ ] **Step 4: 테스트 실행 — 통과 확인**
+- [x] **Step 4: 테스트 실행 — 통과 확인**
 
 ```
 mvn test -Dtest=TenancyQueryServiceTest -q
 ```
 Expected: BUILD SUCCESS. 신규 3개 포함, 기존 테스트도 전부 PASS — **단, `csv_동일_pnu의_상세주소를_지번주소별_물건으로_묶는다`(PNU `4113110800105590004` 사용)는 실패할 가능성이 매우 높다**(사전 조사로 이 PNU에 통신판매업·의료기기판매(임대)업·건강기능식품일반판매업·동물미용업 등 무점포 후보 레코드가 다수 확인됨). 이 실패는 예상된 것 — Step 4-A로 넘어간다.
 
-- [ ] **Step 4-A: 예상되는 회귀 처리**
+- [x] **Step 4-A: 예상되는 회귀 처리**
 
 `csv_동일_pnu의_상세주소를_지번주소별_물건으로_묶는다` 테스트가 실패하면:
 1. 실패 메시지의 실제값(`site.units()` 크기, tenancy 합계, `anySatisfy(hasSize(21))` 등)을 읽는다.
@@ -425,7 +425,7 @@ Expected: BUILD SUCCESS. 신규 3개 포함, 기존 테스트도 전부 PASS —
    ```
 4. 주석도 갱신: 왜 숫자가 바뀌었는지 한 줄 남긴다(예: `// 2026-07-18: 통신판매업 등 무점포 업종이 noStorefrontRegistrations로 분리되며 감소`).
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/main/java/com/nextstep/domain/site/Site.java \
@@ -493,7 +493,7 @@ git commit -m "feat: partition licensed records into storefront/no-storefront by
     }
 ```
 
-- [ ] **Step 2: 테스트 실행 — 실패 확인**
+- [x] **Step 2: 테스트 실행 — 실패 확인**
 
 ```
 mvn test -Dtest=SiteControllerTest -q
@@ -552,21 +552,21 @@ Expected: FAIL — `$.noStorefrontRegistrations` 경로가 응답에 없음
     }
 ```
 
-- [ ] **Step 4: 테스트 실행 — 통과 확인**
+- [x] **Step 4: 테스트 실행 — 통과 확인**
 
 ```
 mvn test -Dtest=SiteControllerTest -q
 ```
 Expected: 신규 테스트 포함 전부 PASS — **단, 기존 `csv_동일_pnu의_상세주소별_물건을_리스팅한다`(PNU `4113110800105590004`, `hasSize(30)` 검증)도 Task 2와 같은 이유로 실패할 가능성이 높다.** Task 2의 Step 4-A와 동일한 절차로 처리: 실제값 확인 → 감소 방향인지 검증 → 갱신.
 
-- [ ] **Step 5: 전체 회귀 확인**
+- [x] **Step 5: 전체 회귀 확인**
 
 ```
 mvn test -q
 ```
 Expected: BUILD SUCCESS, 전체 스위트 통과. Task 2/3에서 갱신한 숫자 외에 예상 못 한 실패가 있으면 STOP하고 원인을 보고한다(특히 `4113110100100340000` PNU를 쓰는 `SiteControllerTest.물건상세는_타임라인과_marketInfo를_포함한다` — 이 테스트는 unit `4113110100100340000-U1`이 현재 프로덕션에서 "스웨터메이커스"+"그랑핏 아름다운자세"(둘 다 순수 통신판매업)+"동물병원 더 하임"의 동물위탁관리업 레코드 하나가 뒤섞인 "단일(상세주소불명)" 버킷이라는 게 사전 확인됨 — 이 fix 이후 스웨터메이커스/그랑핏은 빠지고 동물병원 더 하임 관련 레코드만 남을 것으로 예상되므로, 이 테스트도 실패해서 갱신이 필요할 가능성이 크다. 실패하면 Task 2 Step 4-A와 같은 절차로 처리하되, "동물병원 더 하임"의 레코드가 사라지지 않고(noStorefrontRegistrations로도 안 빠지고) 여전히 어딘가의 `units[]`에 존재하는지 별도로 확인 — 사라졌다면 businessName 파티션 로직 버그이니 STOP).
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/main/java/com/nextstep/web/dto/ApiDtos.java \
@@ -577,6 +577,18 @@ git commit -m "feat: expose noStorefrontRegistrations in GET /api/sites/{pnu}"
 
 ---
 
+## 실행 중 발견된 버그와 수정
+
+Task 2 구현자가 `toSite()`/`toSiteWithoutUnits()`에만 파티션을 적용하고 `findUnitWithTenancies()`(즉
+`GET /api/units/{unitId}` 경로)는 계획에서 아예 빠뜨렸다 — 컨트롤러가 로컬에서 전체 스위트를 돌리다가
+`/api/sites/{pnu}`(파티션 적용됨)와 `/api/units/{unitId}`(파티션 미적용, 여전히 전체 레코드로
+`unitGroups()` 계산)의 unitId 번호 체계가 서로 어긋나는 걸 발견함 — 같은 PNU를 두 경로로 조회하면
+"-U1"이 서로 다른 물건을 가리킬 수 있는 실제 버그였음. `findUnitWithTenancies()`에도 동일하게
+`partitionByStorefront(validRecords(records)).get(true)`를 적용해 수정(커밋 `08c8285`). 실제 데이터
+(PNU `4113110100100340000`, "동물병원 더 하임")로 검증 — 무점포 파티션 적용 전엔 이 유닛에 무관한
+통신판매업 사업자 2곳이 뒤섞여 있었는데(정확히 이 기능이 고치려는 증상), 수정 후엔 정상적으로
+분리됨. 이 과정에서 드러난 기존 테스트 2곳(동물병원 더 하임 관련)도 새 콘텐츠에 맞게 갱신.
+
 ## 한계 및 후속 작업
 
 | 항목 | 상태 |
@@ -584,3 +596,4 @@ git commit -m "feat: expose noStorefrontRegistrations in GET /api/sites/{pnu}"
 | 47개 목록은 90% 임계값 기계적 산출 | 표본 작은 항목(n≤5) 위주로 향후 재검토 여지 |
 | `noStorefrontRegistrations`도 `mergedTenancies` 재사용(businessName+gap 90일) | 무점포 업종엔 "같은 자리" 개념이 없어 이 재사용이 완벽히 맞는 전제는 아님 — 실사용 후 이상하면 재설계 |
 | "동물병원 더 하임" 같은 겸업 사업자의 레코드가 층/호 정보 불일치로 여러 Unit에 분산되는 문제 | 이번 스코프 아님 — 기존 Unit 분리 규칙의 별개 한계(businessName 파티션은 "매장이냐 아니냐"만 결정, 어느 Unit인지는 기존 unitKey 로직 그대로) |
+| `partitionByStorefront()`가 `findSiteWithUnits`/`findUnitWithTenancies` 호출마다 매번 재계산됨 | 두 메서드가 한 요청 안에서 같이 호출되는 경우가 지금은 없어 당장은 낭비 아님 — 향후 합쳐 호출하게 되면 재검토 |
