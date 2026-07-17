@@ -57,7 +57,10 @@ public class TenancyQueryService {
         List<LicensedBusinessRecordEntity> records = recordRepository.findByPnuOrderByLicensedAtAscIdAsc(unitReference.get().pnu());
         if (records.isEmpty()) return Optional.empty();
 
-        List<UnitGroup> groups = unitGroups(unitReference.get().pnu(), validRecords(records));
+        // toSite()/getSiteDetail()이 매기는 unitId와 번호 체계가 어긋나면 안 되므로, 여기서도
+        // 동일하게 storefront 레코드만 unitGroups()에 넘긴다(무점포 업종은 애초에 Unit이 아님).
+        List<LicensedBusinessRecordEntity> storefrontRecords = partitionByStorefront(validRecords(records)).get(true);
+        List<UnitGroup> groups = unitGroups(unitReference.get().pnu(), storefrontRecords);
         int groupIndex = unitReference.get().index() - 1;
         if (groupIndex < 0 || groupIndex >= groups.size()) return Optional.empty();
 

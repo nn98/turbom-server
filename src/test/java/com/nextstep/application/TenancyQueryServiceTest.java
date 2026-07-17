@@ -258,8 +258,11 @@ class TenancyQueryServiceTest {
         var unitWithSite = tenancyQueryService.findUnitWithTenancies("4113110100100340000-U1");
         assertThat(unitWithSite).isPresent();
         Unit unit = unitWithSite.get().unit();
-        // 레코드 10497/11709('동물병원 더 하임', 동일 category='동물', 7일 간격)가 gap 병합되어 4 -> 3
-        assertThat(unit.tenancies()).hasSize(3);
+        // 2026-07-18: 무점포업종 분리 이전엔 이 unit이 스웨터메이커스/그랑핏 아름다운자세(둘 다
+        // 통신판매업, 무관한 사업자)와 동물병원 더 하임이 뒤섞여 hasSize(3)이었음 — 그 두 업체가
+        // noStorefrontRegistrations로 빠지면서 이 unit엔 동물병원 더 하임(동물병원 레코드)만 남음
+        assertThat(unit.tenancies()).hasSize(1);
+        assertThat(unit.tenancies().get(0).businessName()).isEqualTo("동물병원 더 하임");
         assertThat(unitWithSite.get().site().jibunAddress()).contains("신흥동");
     }
 

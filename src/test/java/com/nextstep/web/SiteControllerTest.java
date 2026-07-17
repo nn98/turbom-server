@@ -46,7 +46,7 @@ class SiteControllerTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990201, '4113110100100970000', '건강', '의료기기판매(임대)업', 'test-license-5', "
+            + "VALUES (990201, '4113110100100970000', '건강', '의원', 'test-license-5', "
             + "'원본상태 테스트', NULL, '휴업', NULL, NULL, '2024-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 3 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -98,12 +98,16 @@ class SiteControllerTest {
 
     @Test
     void 물건상세는_타임라인과_marketInfo를_포함한다() throws Exception {
+        // 2026-07-18: 무점포업종 분리 이전엔 스웨터메이커스/그랑핏 아름다운자세(둘 다 통신판매업,
+        // 무관한 사업자)가 동물병원 더 하임과 뒤섞여 hasSize(3)이었음 — 그 두 업체가
+        // noStorefrontRegistrations로 빠지면서 이 unit엔 동물병원 더 하임(동물병원 레코드, 영업중)만 남음
         mockMvc.perform(get("/api/units/4113110100100340000-U1"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(3)))
-            .andExpect(jsonPath("$.timeline[0].status").value("취소/말소/만료/정지/중지"))
+            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(jsonPath("$.timeline[0].businessName").value("동물병원 더 하임"))
+            .andExpect(jsonPath("$.timeline[0].status").value("영업"))
             .andExpect(jsonPath("$.timeline[0].marketInfo.isPlaceholder").value(true))
-            .andExpect(jsonPath("$.statistics.totalTenancyCount").value(3));
+            .andExpect(jsonPath("$.statistics.totalTenancyCount").value(1));
     }
 
     @Test
