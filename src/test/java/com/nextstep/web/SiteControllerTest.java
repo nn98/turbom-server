@@ -21,6 +21,27 @@ class SiteControllerTest {
         "DELETE FROM licensed_business_record WHERE pnu = '" + DUPLICATE_PNU + "'";
     private static final String DELETE_RAW_STATUS_PNU =
         "DELETE FROM licensed_business_record WHERE pnu = '" + RAW_STATUS_PNU + "'";
+    private static final String NO_STOREFRONT_PNU = "4113110100100960001";
+    private static final String DELETE_NO_STOREFRONT_PNU2 =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + NO_STOREFRONT_PNU + "'";
+    private static final String INSERT_NO_STOREFRONT_STOREFRONT =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (990601, '4113110100100960001', '식품', '일반음식점', 'test-license-40', '진짜매장', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 7 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_NO_STOREFRONT_ONLY =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (990602, '4113110100100960001', '생활', '통신판매업', 'test-license-41', '온라인셀러', "
+            + "NULL, '영업/정상', '0000', '정상', '2021-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 7 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
     private static final String INSERT_DUPLICATE_UNIT_1 =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
@@ -141,6 +162,20 @@ class SiteControllerTest {
             .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(1)))
             .andExpect(jsonPath("$.timeline[0].businessName").value("원본상태 테스트"))
             .andExpect(jsonPath("$.timeline[0].status").value("휴업"));
+    }
+
+    @Test
+    @Sql(statements = {DELETE_NO_STOREFRONT_PNU2, INSERT_NO_STOREFRONT_STOREFRONT, INSERT_NO_STOREFRONT_ONLY})
+    @Sql(statements = DELETE_NO_STOREFRONT_PNU2, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 무점포업종은_units와_분리된_배열로_응답한다() throws Exception {
+        mockMvc.perform(get("/api/sites/" + NO_STOREFRONT_PNU))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(jsonPath("$.units[0].currentBusinessName").value("진짜매장"))
+            .andExpect(jsonPath("$.noStorefrontRegistrations", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(jsonPath("$.noStorefrontRegistrations[0].businessName").value("온라인셀러"))
+            .andExpect(jsonPath("$.noStorefrontRegistrations[0].category").value("생활"))
+            .andExpect(jsonPath("$.noStorefrontRegistrations[0].subCategory").value("통신판매업"));
     }
 
     @Test

@@ -56,7 +56,11 @@ public class SiteQueryService {
             .sorted(Comparator.comparingInt(UnitSummaryDto::closedCount).reversed())
             .toList();
 
-        return new SiteDetailResponse(toSiteDto(site), units, disclaimer());
+        List<NoStorefrontRegistrationDto> noStorefrontRegistrations = site.noStorefrontRegistrations().stream()
+            .map(this::toNoStorefrontRegistrationDto)
+            .toList();
+
+        return new SiteDetailResponse(toSiteDto(site), units, noStorefrontRegistrations, disclaimer());
     }
 
     public UnitDetailResponse getUnitDetail(String unitId) {
@@ -89,6 +93,11 @@ public class SiteQueryService {
     private Map<String, String> lookupStoreDetails(Double lon, Double lat) {
         if (lon == null || lat == null) return Map.of();
         return sanggaApiClient.lookupStoreDetails(lon, lat, ENRICHMENT_RADIUS_METERS);
+    }
+
+    private NoStorefrontRegistrationDto toNoStorefrontRegistrationDto(Tenancy tenancy) {
+        return new NoStorefrontRegistrationDto(tenancy.businessName(), tenancy.category(), tenancy.subCategory(),
+            tenancy.period().licensedAt(), tenancy.period().closedAt(), tenancy.displayStatus());
     }
 
     private String lookupIndustryDetail(String businessName, Map<String, String> storeDetails) {

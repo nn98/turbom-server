@@ -14,7 +14,9 @@ public class ApiDtos {
                                     String currentSubCategory) {
     }
 
-    public record SiteDetailResponse(SiteDto site, List<UnitSummaryDto> units, DisclaimerDto disclaimer) {
+    public record SiteDetailResponse(SiteDto site, List<UnitSummaryDto> units,
+                                      List<NoStorefrontRegistrationDto> noStorefrontRegistrations,
+                                      DisclaimerDto disclaimer) {
     }
 
     public record SiteDto(String pnu, String jibunAddress, String roadAddress, Double latitude, Double longitude) {
@@ -24,6 +26,10 @@ public class ApiDtos {
                                   int totalTenancyCount, int closedCount, Integer averageSurvivalMonths,
                                   String industryDetail, String locationSource,
                                   String parsedFloor, String parsedUnitNo, String parseConfidence) {
+    }
+
+    public record NoStorefrontRegistrationDto(String businessName, String category, String subCategory,
+                                               LocalDate licensedAt, LocalDate closedAt, String status) {
     }
 
     public record UnitDetailResponse(UnitDto unit, UnitStatisticsDto statistics, List<TenancyDto> timeline,
