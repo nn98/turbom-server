@@ -37,15 +37,26 @@
 
 이 목록은 **90% 임계값을 기계적으로 적용한 결과**이지 업종별 수작업 큐레이션이 아님 — 표본이 매우 작은 항목(예: n=1~3건짜리 "물류창고업체", "박물관 및 미술관" 등)은 통계적으로 약한 신호이므로 코드 주석에 저신뢰 표시. 향후 실사례로 오분류가 확인되면 그때 개별 조정.
 
-### 데이터 흐름 (`TenancyQueryService`)
+### 데이터 흐름 (`TenancyQueryService`) — 상호명 단위로 먼저 판단
+
+**최초 설계(레코드 단위 분류)는 기각** — 계획 수립 중 기존 테스트 픽스처를 실제 대조하다가
+`동물병원 더 하임`(PNU `4113110100100340000`) 사례를 발견: 이 병원은 `동물병원`(호실정보 있음,
+정상 매장업종) 라이선스와 `동물미용업`/`동물위탁관리업`(90%+ 무점포 후보) 라이선스를 **동시에**
+보유. 레코드 단위로 자르면 같은 병원의 이력이 `units[]`와 `noStorefrontRegistrations[]`로
+쪼개지는 버그가 생김 — 부가 허가만 따로 뗐다고 실제 매장이 없어지는 게 아님.
+
+**수정된 규칙**: 같은 PNU 안에서 **같은 businessName**의 레코드를 먼저 묶고, 그 그룹 안에
+하나라도 "물리적 신호"(① subCategory가 47개 무점포 목록 밖이거나, ② `parsedFloor`/
+`parsedUnitNo` 중 하나라도 값이 있음)가 있으면 **그 상호명의 모든 레코드**를 storefront로
+취급(기존 Unit 그룹핑 파이프라인). 물리적 신호가 하나도 없는 상호명만 noStorefront.
 
 ```
 records(유효, licensedAt 있음)
-  ├─ storefront: NoStorefrontSubCategories.isNoStorefront() == false
-  │     → 기존 unitGroups() → toUnits() 파이프라인 그대로 (변경 없음)
-  └─ noStorefront: isNoStorefront() == true
-        → businessName + gap(90일) 병합(기존 mergedTenancies() 재사용)
-        → Site.noStorefrontRegistrations
+  → businessName으로 그룹핑(같은 PNU 내)
+  → 그룹별로 물리적 신호 있는지 판정
+      있음 → storefront pool → 기존 unitGroups() → toUnits() (변경 없음)
+      없음 → noStorefront pool → businessName + gap(90일) 병합(기존 mergedTenancies() 재사용)
+                                → Site.noStorefrontRegistrations
 ```
 
 기존 `Tenancy` 타입을 그대로 재사용(새 도메인 타입 안 만듦 — `businessName`/`category`/`subCategory`/`period`/`status` 다 이미 있음). `Site` 레코드에 `List<Tenancy> noStorefrontRegistrations` 필드 추가.
