@@ -64,3 +64,56 @@ def test_성남시_행은_정상_처리됨(tmp_path, capsys):
     chunk_files = list(output_dir.glob("*.sql"))
     assert len(chunk_files) == 1
     assert "seongnam-001" in chunk_files[0].read_text(encoding="utf-8")
+
+
+from parse_licensed_records import load_existing_license_nos
+
+
+def _write_existing_chunk(path, rows):
+    """rows: list of (id, pnu, category, sub_category, license_no, business_name) 튜플"""
+    lines = [
+        "INSERT INTO licensed_business_record "
+        "(id, pnu, category, sub_category, license_no, business_name) VALUES"
+    ]
+    row_texts = [
+        f"({r[0]}, '{r[1]}', '{r[2]}', '{r[3]}', '{r[4]}', '{r[5]}')" for r in rows
+    ]
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(lines[0] + "\n")
+        f.write(",\n".join(row_texts))
+        f.write(";\n")
+
+
+def test_load_existing_license_nos_기존_청크에서_추출(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    _write_existing_chunk(data_dir / "licensed-business-records-001.sql", [
+        (1, "4113110200042530000", "기타", "담배소매업", "1974379000005600001", "태평코너"),
+        (2, "4113110300043550000", "기타", "담배소매업", "1974379000005600002", "문방구"),
+    ])
+
+    license_nos = load_existing_license_nos(str(data_dir))
+
+    assert license_nos == {"1974379000005600001", "1974379000005600002"}
+
+
+def test_load_existing_license_nos_디렉토리_없으면_빈집합(tmp_path):
+    assert load_existing_license_nos(str(tmp_path / "no-such-dir")) == set()
+
+
+def test_이미_적재된_관리번호는_스킵됨(tmp_path, capsys):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    _write_existing_chunk(data_dir / "licensed-business-records-001.sql", [
+        (1, "4113110200042530000", "기타", "담배소매업", "seongnam-001", "기존가게"),
+    ])
+    csv_path = tmp_path / "식품_일반음식점.csv"
+    _write_csv(csv_path, [
+        _make_row("3780000", "seongnam-001", "경기도 성남시 수정구 태평동", "경기도 성남시 수정구 태평동 2254"),
+    ])
+
+    parse_file(str(csv_path), str(data_dir), 100)
+
+    out = capsys.readouterr().out
+    assert "생성된 레코드: 0" in out
+    assert "DUPLICATE_LICENSE_NO: 1" in out

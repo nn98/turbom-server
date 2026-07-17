@@ -76,6 +76,24 @@ def to_insert_row(record_id: int, pnu: str, row: dict, category: str, sub_catego
     ]) + ")"
 
 
+_LICENSE_NO_PATTERN = re.compile(r"^\((?:\d+), '[^']*', '[^']*', '[^']*', '([^']*)',")
+
+
+def load_existing_license_nos(data_dir: str) -> set[str]:
+    license_nos: set[str] = set()
+    if not os.path.isdir(data_dir):
+        return license_nos
+    for filename in os.listdir(data_dir):
+        if not filename.startswith("licensed-business-records-") or not filename.endswith(".sql"):
+            continue
+        with open(os.path.join(data_dir, filename), encoding="utf-8") as f:
+            for line in f:
+                match = _LICENSE_NO_PATTERN.match(line.strip())
+                if match:
+                    license_nos.add(match.group(1))
+    return license_nos
+
+
 def parse_file(csv_path: str, output_dir: str, start_id: int) -> None:
     category, sub_category = derive_category(csv_path)
     all_legaldong_codes = load_legaldong_codes(
@@ -86,6 +104,7 @@ def parse_file(csv_path: str, output_dir: str, start_id: int) -> None:
     legaldong_codes = {
         name: code for name, code in all_legaldong_codes.items() if REGION_FILTER in name
     }
+    existing_license_nos = load_existing_license_nos(output_dir)
 
     skip_reasons: Counter = Counter()
     rows: list[str] = []
@@ -96,6 +115,9 @@ def parse_file(csv_path: str, output_dir: str, start_id: int) -> None:
         for row in reader:
             if row["개방자치단체코드"] != SEONGNAM_GOV_CODE:
                 skip_reasons["NOT_SEONGNAM"] += 1
+                continue
+            if row["관리번호"] in existing_license_nos:
+                skip_reasons["DUPLICATE_LICENSE_NO"] += 1
                 continue
             jibun = row["지번주소"].strip()
             if not jibun:
