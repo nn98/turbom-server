@@ -7,10 +7,14 @@ from collections import Counter
 from jibun_pnu import load_legaldong_codes, parse_pnu
 
 CHUNK_SIZE = 1000
-FILENAME_PATTERN = re.compile(r"^(?P<category>[^_]+)_(?P<sub_category>[^_]+)_[^_]+\.csv$")
+FILENAME_PATTERN = re.compile(r"^(?P<category>[^_]+)_(?P<sub_category>[^_]+)(_[^_]+)?\.csv$")
 # ponytail: 이 프로젝트는 성남시 한정(CLAUDE.md 데이터축)이라 하드코딩. 다른 지역 파일이
 # 추가되면 파일명의 "지역" 세그먼트에서 유도하도록 확장.
 REGION_FILTER = "성남시"
+# ponytail: 성남시 하드코딩, REGION_FILTER와 같은 이유(CLAUDE.md 데이터축).
+# 지번주소 파싱을 시도하기 전에 거르는 성능용 사전 필터 — 실측 230만 행 중
+# 99%가 이 필터 하나로 즉시 스킵됨(성남시는 1.3%뿐).
+SEONGNAM_GOV_CODE = "3780000"
 
 
 def derive_category(csv_path: str) -> tuple[str, str]:
@@ -90,6 +94,9 @@ def parse_file(csv_path: str, output_dir: str, start_id: int) -> None:
     with open(csv_path, encoding="cp949") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            if row["개방자치단체코드"] != SEONGNAM_GOV_CODE:
+                skip_reasons["NOT_SEONGNAM"] += 1
+                continue
             jibun = row["지번주소"].strip()
             if not jibun:
                 skip_reasons["EMPTY"] += 1
