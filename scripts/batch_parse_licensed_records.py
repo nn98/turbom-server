@@ -6,6 +6,7 @@ import time
 from collections import Counter
 
 from parse_licensed_records import parse_file
+from pnu_ledger import load_pnu_ledger
 
 _CHUNK_ID_PATTERN = re.compile(r"^\((\d+),")
 
@@ -25,7 +26,8 @@ def next_start_id(output_dir: str) -> int:
     return max_id + 1
 
 
-def run_batch(output_dir: str, source_dirs: list[str], log_path: str) -> None:
+def run_batch(output_dir: str, source_dirs: list[str], log_path: str,
+              pnu_ledger: dict[str, dict] | None = None) -> None:
     csv_files = sorted(
         path for d in source_dirs for path in glob.glob(os.path.join(d, "*.csv"))
     )
@@ -39,7 +41,7 @@ def run_batch(output_dir: str, source_dirs: list[str], log_path: str) -> None:
         for i, csv_path in enumerate(csv_files, start=1):
             basename = os.path.basename(csv_path)
             try:
-                next_id, skip_reasons = parse_file(csv_path, output_dir, start_id)
+                next_id, skip_reasons = parse_file(csv_path, output_dir, start_id, pnu_ledger)
             except Exception as e:  # noqa: BLE001 - 배치 전체가 한 파일 때문에 죽으면 안 됨
                 file_errors.append((basename, f"{type(e).__name__}: {e}"))
                 log.write(f"[{i}/{len(csv_files)}] ERROR {basename}: {type(e).__name__}: {e}\n")
@@ -72,7 +74,13 @@ def run_batch(output_dir: str, source_dirs: list[str], log_path: str) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("usage: batch_parse_licensed_records.py <output_dir> <source_dir> [<source_dir> ...]")
+    args = sys.argv[1:]
+    ledger_path = None
+    if args and args[0] == "--ledger":
+        ledger_path = args[1]
+        args = args[2:]
+    if len(args) < 2:
+        print("usage: batch_parse_licensed_records.py [--ledger <path>] <output_dir> <source_dir> [<source_dir> ...]")
         sys.exit(1)
-    run_batch(sys.argv[1], sys.argv[2:], os.path.join(sys.argv[2], "batch-run-summary.txt"))
+    pnu_ledger = load_pnu_ledger(ledger_path) if ledger_path else None
+    run_batch(args[0], args[1:], os.path.join(args[1], "batch-run-summary.txt"), pnu_ledger)
