@@ -142,6 +142,23 @@ python3 batch_parse_licensed_records.py ../src/main/resources/data ../data/경�
 ```
 → 195개 파일, 897MB, **87초** 만에 처리 완료. 총 63,592건 신규 생성 (다음 시작 id: 173199).
 
+### 성남시 PNU 정정(`--ledger`)
+
+`data/경기도`를 처리할 때 `--ledger` 옵션으로 권위 파일을 넘기면, `license_no`가 일치하는 행은
+지번 정규식 대신 이 파일의 PNU를 그대로 쓴다(정규식이 "산" 표기 누락으로 산여부를 잘못 판정해
+동일 업소가 다른 PNU로 중복 적재되는 걸 막음, 정규식이 포기하던 지번도 구제 —
+`docs/superpowers/specs/2026-07-18-pnu-ledger-correction-design.md` 참고):
+
+```bash
+python3 batch_parse_licensed_records.py \
+  --ledger "../../data_uncleaning/PNU(지번)기반_개폐업정보현황_성남시_10년.csv" \
+  ../src/main/resources/data ../data/경기도
+```
+
+이 권위 파일은 성남시 전용이라 `data/서울특별시` 처리 시엔 `--ledger`를 안 넘겨도 되고(넘겨도
+무해함 — 서울 `license_no`는 애초에 이 파일에 없어 전부 미스로 자연 폴백), 넘기려면 두 소스
+디렉터리를 한 번에 처리하는 호출에 그냥 같이 붙이면 된다.
+
 ### 서울특별시 폴더는 지금 스코프에서 결과가 0건이다
 
 `data/서울특별시/` 파일들도 똑같은 컬럼 구조(`개방자치단체코드` 포함)라 스크립트 자체는 돌아가지만,

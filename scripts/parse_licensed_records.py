@@ -116,7 +116,8 @@ def load_existing_license_nos(data_dir: str) -> set[str]:
     return license_nos
 
 
-def parse_file(csv_path: str, output_dir: str, start_id: int) -> tuple[int, Counter]:
+def parse_file(csv_path: str, output_dir: str, start_id: int,
+                pnu_ledger: dict[str, dict] | None = None) -> tuple[int, Counter]:
     category, sub_category = derive_category(csv_path)
     all_legaldong_codes = load_legaldong_codes(
         os.path.join(os.path.dirname(__file__), "legaldong_codes.csv")
@@ -144,14 +145,18 @@ def parse_file(csv_path: str, output_dir: str, start_id: int) -> tuple[int, Coun
             if row["관리번호"] in existing_license_nos:
                 skip_reasons["DUPLICATE_LICENSE_NO"] += 1
                 continue
-            jibun = row["지번주소"].strip()
-            if not jibun:
-                skip_reasons["EMPTY"] += 1
-                continue
-            pnu = parse_pnu(jibun, legaldong_codes)
-            if pnu is None:
-                skip_reasons["UNPARSEABLE_OR_DONG_NOT_FOUND"] += 1
-                continue
+            ledger_entry = pnu_ledger.get(row["관리번호"]) if pnu_ledger else None
+            if ledger_entry is not None:
+                pnu = ledger_entry["pnu"]
+            else:
+                jibun = row["지번주소"].strip()
+                if not jibun:
+                    skip_reasons["EMPTY"] += 1
+                    continue
+                pnu = parse_pnu(jibun, legaldong_codes)
+                if pnu is None:
+                    skip_reasons["UNPARSEABLE_OR_DONG_NOT_FOUND"] += 1
+                    continue
             if _valid_date_or_none(row["인허가일자"]) is None:
                 skip_reasons["NO_LICENSED_AT"] += 1
                 continue

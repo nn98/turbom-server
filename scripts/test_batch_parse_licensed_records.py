@@ -1,6 +1,7 @@
 import csv
 
 from batch_parse_licensed_records import next_start_id, run_batch
+from pnu_ledger import load_pnu_ledger
 
 _FIELDNAMES = [
     "개방자치단체코드", "관리번호", "사업장명", "영업상태명",
@@ -86,3 +87,34 @@ def test_run_batch_한_파일이_깨져도_나머지는_계속_처리됨(tmp_pat
     summary = log_path.read_text(encoding="utf-8")
     assert "이상한_카테고리.csv" in summary
     assert "파일 자체 오류로 처리 실패한 파일 (1개)" in summary
+
+
+def test_run_batch에_ledger를_넘기면_parse_file에_전달됨(tmp_path):
+    src = tmp_path / "경기도"
+    src.mkdir()
+    _write_csv(src / "식품_일반음식점.csv", [_row("ledger-e2e-001")])
+
+    ledger_csv = tmp_path / "ledger.csv"
+    with open(ledger_csv, "w", encoding="cp949", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "필지고유번호(PNU)", "관리번호", "주소보정여부",
+            "원본도로명주소마스킹여부", "원본지번주소마스킹여부",
+        ])
+        writer.writeheader()
+        writer.writerow({
+            "필지고유번호(PNU)": "4113110100177770000",
+            "관리번호": "ledger-e2e-001",
+            "주소보정여부": "N",
+            "원본도로명주소마스킹여부": "N",
+            "원본지번주소마스킹여부": "N",
+        })
+    pnu_ledger = load_pnu_ledger(str(ledger_csv))
+
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    log_path = tmp_path / "summary.txt"
+
+    run_batch(str(output_dir), [str(src)], str(log_path), pnu_ledger)
+
+    content = list(output_dir.glob("*.sql"))[0].read_text(encoding="utf-8")
+    assert "4113110100177770000" in content
