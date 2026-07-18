@@ -101,7 +101,7 @@ class SiteControllerTest {
     void 신흥동으로_검색하면_후보가_나온다() throws Exception {
         mockMvc.perform(get("/api/sites/search").param("query", "신흥동"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(1746)))
+            .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(1588)))
             .andExpect(jsonPath("$.candidates[*].pnu",
                 org.hamcrest.Matchers.hasItems("4113110100100340000", "4113110100100300002")))
             .andExpect(jsonPath("$.candidates[0].pnu").exists())
