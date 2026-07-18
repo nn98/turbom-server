@@ -24,7 +24,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990001, '4113110100100990000', '동물', '동물미용업', 'test-license-1', '중복PNU 1층', "
+            + "VALUES (9900000001, '4113110100100990000', '동물', '동물미용업', 'test-license-1', '중복PNU 1층', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 1, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 99 1층', "
             + "FALSE, TRUE, NULL, '1', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -34,7 +34,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990002, '4113110100100990000', '동물', '동물병원', 'test-license-2', '중복PNU 2층', "
+            + "VALUES (9900000002, '4113110100100990000', '동물', '동물병원', 'test-license-2', '중복PNU 2층', "
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 1, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 99 2층', "
             + "FALSE, TRUE, NULL, '2', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -47,7 +47,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990201, '4113110100100970000', '동물', '동물미용업', 'test-license-5', '층생략 1', "
+            + "VALUES (9900000201, '4113110100100970000', '동물', '동물미용업', 'test-license-5', '층생략 1', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 3, 1층 119호 (테스트동)', '경기도 성남시 수정구 테스트동 97 1층 119호', "
             + "FALSE, TRUE, NULL, '1', '119', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -57,7 +57,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990202, '4113110100100970000', '동물', '동물병원', 'test-license-6', '층생략 2', "
+            + "VALUES (9900000202, '4113110100100970000', '동물', '동물병원', 'test-license-6', '층생략 2', "
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 3, 119호 (테스트동)', '경기도 성남시 수정구 테스트동 97 119호', "
             + "FALSE, TRUE, NULL, NULL, '119', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -71,7 +71,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990301, '4113110100100960000', '외식', '커피', 'test-license-10', '병합가게A', "
+            + "VALUES (9900000301, '4113110100100960000', '외식', '커피', 'test-license-10', '병합가게A', "
             + "NULL, '폐업', '0002', '폐업', '2020-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 4, 1층 101호 (테스트동)', '경기도 성남시 수정구 테스트동 96 1층 101호', "
             + "FALSE, TRUE, NULL, '1', '101', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -81,7 +81,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990302, '4113110100100960000', '소매', '즉석판매', 'test-license-11', '병합가게A', "
+            + "VALUES (9900000302, '4113110100100960000', '소매', '즉석판매', 'test-license-11', '병합가게A', "
             + "NULL, '영업/정상', '0000', '정상', '2022-02-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 4, 1층 101호 (테스트동)', '경기도 성남시 수정구 테스트동 96 1층 101호', "
             + "FALSE, TRUE, NULL, '1', '101', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -92,7 +92,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990303, '4113110100100960000', '외식', '한식', 'test-license-12', '재입점가게B', "
+            + "VALUES (9900000303, '4113110100100960000', '외식', '한식', 'test-license-12', '재입점가게B', "
             + "NULL, '폐업', '0002', '폐업', '2018-01-01', '2018-06-01', "
             + "'경기도 성남시 수정구 테스트로 4, 2층 102호 (테스트동)', '경기도 성남시 수정구 테스트동 96 2층 102호', "
             + "FALSE, TRUE, NULL, '2', '102', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -102,7 +102,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990304, '4113110100100960000', '외식', '분식', 'test-license-13', '재입점가게B', "
+            + "VALUES (9900000304, '4113110100100960000', '외식', '분식', 'test-license-13', '재입점가게B', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 4, 2층 102호 (테스트동)', '경기도 성남시 수정구 테스트동 96 2층 102호', "
             + "FALSE, TRUE, NULL, '2', '102', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -113,7 +113,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990305, '4113110100100960000', '외식', '카페', 'test-license-14', '동시업종가게C', "
+            + "VALUES (9900000305, '4113110100100960000', '외식', '카페', 'test-license-14', '동시업종가게C', "
             + "NULL, '영업/정상', '0000', '정상', '2021-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 4, 3층 103호 (테스트동)', '경기도 성남시 수정구 테스트동 96 3층 103호', "
             + "FALSE, TRUE, NULL, '3', '103', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -123,7 +123,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990306, '4113110100100960000', '소매', '베이커리', 'test-license-15', '동시업종가게C', "
+            + "VALUES (9900000306, '4113110100100960000', '소매', '베이커리', 'test-license-15', '동시업종가게C', "
             + "NULL, '영업/정상', '0000', '정상', '2021-06-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 4, 3층 103호 (테스트동)', '경기도 성남시 수정구 테스트동 96 3층 103호', "
             + "FALSE, TRUE, NULL, '3', '103', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -134,7 +134,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990307, '4113110100100960000', '서비스', '미용', 'test-license-16', '가게D-1', "
+            + "VALUES (9900000307, '4113110100100960000', '서비스', '미용', 'test-license-16', '가게D-1', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 4, 4층 104호 (테스트동)', '경기도 성남시 수정구 테스트동 96 4층 104호', "
             + "FALSE, TRUE, NULL, '4', '104', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -144,7 +144,7 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990308, '4113110100100960000', '서비스', '세탁', 'test-license-17', '가게D-2', "
+            + "VALUES (9900000308, '4113110100100960000', '서비스', '세탁', 'test-license-17', '가게D-2', "
             + "NULL, '영업/정상', '0000', '정상', '2020-06-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 4, 4층 104호 (테스트동)', '경기도 성남시 수정구 테스트동 96 4층 104호', "
             + "FALSE, TRUE, NULL, '4', '104', 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -156,7 +156,7 @@ class TenancyQueryServiceTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990501, '4113110100100950000', '식품', '일반음식점', 'test-license-30', '일반음식점가게', "
+            + "VALUES (9900000501, '4113110100100950000', '식품', '일반음식점', 'test-license-30', '일반음식점가게', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 6, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 96 1층', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -165,7 +165,7 @@ class TenancyQueryServiceTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990502, '4113110100100950000', '생활', '통신판매업', 'test-license-31', '통신판매업체A', "
+            + "VALUES (9900000502, '4113110100100950000', '생활', '통신판매업', 'test-license-31', '통신판매업체A', "
             + "NULL, '영업/정상', '0000', '정상', '2021-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 6 (테스트동)', '경기도 성남시 수정구 테스트동 96', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -174,7 +174,7 @@ class TenancyQueryServiceTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990503, '4113110100100950000', '생활', '방문판매업', 'test-license-32', '방문판매업체B', "
+            + "VALUES (9900000503, '4113110100100950000', '생활', '방문판매업', 'test-license-32', '방문판매업체B', "
             + "NULL, '영업/정상', '0000', '정상', '2022-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 6 (테스트동)', '경기도 성남시 수정구 테스트동 96', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -185,7 +185,7 @@ class TenancyQueryServiceTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
-            + "VALUES (990504, '4113110100100950000', '식품', '일반음식점', 'test-license-33', '겸업사업자', "
+            + "VALUES (9900000504, '4113110100100950000', '식품', '일반음식점', 'test-license-33', '겸업사업자', "
             + "NULL, '영업/정상', '0000', '정상', '2023-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 6, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 96 2층', "
             + "FALSE, TRUE, '2', '3780000', 212818.475436898, 438579.588327304)";
@@ -194,7 +194,7 @@ class TenancyQueryServiceTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990505, '4113110100100950000', '생활', '통신판매업', 'test-license-34', '겸업사업자', "
+            + "VALUES (9900000505, '4113110100100950000', '생활', '통신판매업', 'test-license-34', '겸업사업자', "
             + "NULL, '영업/정상', '0000', '정상', '2023-02-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 6 (테스트동)', '경기도 성남시 수정구 테스트동 96', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -210,7 +210,7 @@ class TenancyQueryServiceTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990101, '4113110100100980000', '동물', '동물병원', 'test-license-3', '동일지번 도로명1', "
+            + "VALUES (9900000101, '4113110100100980000', '동물', '동물병원', 'test-license-3', '동일지번 도로명1', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 2, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 98', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -219,7 +219,7 @@ class TenancyQueryServiceTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990102, '4113110100100980000', '동물', '동물병원', 'test-license-4', '동일지번 도로명2', "
+            + "VALUES (9900000102, '4113110100100980000', '동물', '동물병원', 'test-license-4', '동일지번 도로명2', "
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 2, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 98', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";

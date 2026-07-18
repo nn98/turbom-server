@@ -29,7 +29,7 @@ class SiteControllerTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990601, '4113110100100960001', '식품', '일반음식점', 'test-license-40', '진짜매장', "
+            + "VALUES (9900000601, '4113110100100960001', '식품', '일반음식점', 'test-license-40', '진짜매장', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 7 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -38,7 +38,7 @@ class SiteControllerTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990602, '4113110100100960001', '생활', '통신판매업', 'test-license-41', '온라인셀러', "
+            + "VALUES (9900000602, '4113110100100960001', '생활', '통신판매업', 'test-license-41', '온라인셀러', "
             + "NULL, '영업/정상', '0000', '정상', '2021-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 7 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -50,7 +50,7 @@ class SiteControllerTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990701, '4113110100100960002', '생활', '통신판매업', 'test-license-42', '순수온라인셀러', "
+            + "VALUES (9900000701, '4113110100100960002', '생활', '통신판매업', 'test-license-42', '순수온라인셀러', "
             + "NULL, '영업/정상', '0000', '정상', '2021-01-01', NULL, "
             + "'경기도 성남시 수정구 검색전용테스트로 (검색전용테스트동)', '경기도 성남시 수정구 검색전용테스트동', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -60,7 +60,7 @@ class SiteControllerTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990001, '4113110100100990000', '동물', '동물미용업', 'test-license-1', '중복PNU 1층', "
+            + "VALUES (9900000001, '4113110100100990000', '동물', '동물미용업', 'test-license-1', '중복PNU 1층', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 1, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 99 1층', "
             + "FALSE, TRUE, NULL, '1', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -70,7 +70,7 @@ class SiteControllerTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
             + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
-            + "VALUES (990002, '4113110100100990000', '동물', '동물병원', 'test-license-2', '중복PNU 2층', "
+            + "VALUES (9900000002, '4113110100100990000', '동물', '동물병원', 'test-license-2', '중복PNU 2층', "
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 1, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 99 2층', "
             + "FALSE, TRUE, NULL, '2', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
@@ -83,7 +83,7 @@ class SiteControllerTest {
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (990201, '4113110100100970000', '건강', '의원', 'test-license-5', "
+            + "VALUES (9900000201, '4113110100100970000', '건강', '의원', 'test-license-5', "
             + "'원본상태 테스트', NULL, '휴업', NULL, NULL, '2024-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 3 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
@@ -101,7 +101,7 @@ class SiteControllerTest {
     void 신흥동으로_검색하면_후보가_나온다() throws Exception {
         mockMvc.perform(get("/api/sites/search").param("query", "신흥동"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(707)))
+            .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(1746)))
             .andExpect(jsonPath("$.candidates[*].pnu",
                 org.hamcrest.Matchers.hasItems("4113110100100340000", "4113110100100300002")))
             .andExpect(jsonPath("$.candidates[0].pnu").exists())
