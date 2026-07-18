@@ -48,8 +48,7 @@ public class CourtAuctionCollector {
                 .selectOption("상업용및업무용");
             page.waitForTimeout(500);
 
-            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("검색"))
-                .first()
+            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("검색").setExact(true))
                 .click();
             page.waitForLoadState();
 
