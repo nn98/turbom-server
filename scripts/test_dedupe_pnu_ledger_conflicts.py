@@ -39,10 +39,27 @@ def test_resolve_conflicts_ledger_pnu와_다른_행만_삭제_대상(tmp_path):
     pnu_ledger = {"dup-001": {"pnu": "4113110100200020000", "address_corrected": False,
                                "road_masked": False, "jibun_masked": False}}
 
-    ids_to_delete, unresolved = resolve_conflicts(str(tmp_path), pnu_ledger)
+    ids_to_delete, unresolved, full_wipes = resolve_conflicts(str(tmp_path), pnu_ledger)
 
     assert ids_to_delete == {1}
     assert unresolved == ["unresolved-001"]
+    assert full_wipes == []
+
+
+def test_resolve_conflicts_ledger_pnu가_기존_어느_pnu와도_안_맞으면_full_wipe로_보고(tmp_path):
+    _write_chunk(tmp_path / "licensed-business-records-001.sql", [
+        (1, "4113110100100010000", "wipe-001"),
+        (2, "4113110100200020000", "wipe-001"),
+    ])
+    # ledger 값이 기존 두 행의 pnu 중 어느 것도 아님
+    pnu_ledger = {"wipe-001": {"pnu": "4113110100999990000", "address_corrected": False,
+                                "road_masked": False, "jibun_masked": False}}
+
+    ids_to_delete, unresolved, full_wipes = resolve_conflicts(str(tmp_path), pnu_ledger)
+
+    assert ids_to_delete == {1, 2}
+    assert unresolved == []
+    assert full_wipes == ["wipe-001"]
 
 
 def test_delete_rows_행_삭제_후_남은_행만_유효한_SQL로_재기록(tmp_path):
