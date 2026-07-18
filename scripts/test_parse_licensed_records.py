@@ -221,3 +221,73 @@ def test_이미_적재된_관리번호는_스킵됨(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "생성된 레코드: 0" in out
     assert "DUPLICATE_LICENSE_NO: 1" in out
+
+
+def test_ledger에_license_no가_있으면_정규식_대신_ledger_pnu를_씀(tmp_path, capsys):
+    csv_path = tmp_path / "식품_일반음식점.csv"
+    # 정규식으로 파싱하면 "경기도 성남시 수정구 태평동 2254" -> 산여부=0인 PNU가 나옴.
+    # ledger에는 일부러 다른(산여부=1) PNU를 넣어서, ledger가 이겼는지 검증한다.
+    _write_csv(csv_path, [
+        _make_row("3780000", "ledger-hit-001", "경기도 성남시 수정구 태평동",
+                  "경기도 성남시 수정구 태평동 2254"),
+    ])
+    output_dir = tmp_path / "out"
+    pnu_ledger = {"ledger-hit-001": {"pnu": "4113110100199990000", "address_corrected": False,
+                                      "road_masked": False, "jibun_masked": False}}
+
+    parse_file(str(csv_path), str(output_dir), 1, pnu_ledger)
+
+    out = capsys.readouterr().out
+    assert "생성된 레코드: 1" in out
+    chunk = list(output_dir.glob("*.sql"))[0].read_text(encoding="utf-8")
+    assert "4113110100199990000" in chunk
+
+
+def test_ledger에_없는_license_no는_기존_정규식_로직_그대로(tmp_path, capsys):
+    csv_path = tmp_path / "식품_일반음식점.csv"
+    _write_csv(csv_path, [
+        _make_row("3780000", "ledger-miss-001", "경기도 성남시 수정구 태평동",
+                  "경기도 성남시 수정구 태평동 2254"),
+    ])
+    output_dir = tmp_path / "out"
+    pnu_ledger = {"other-license": {"pnu": "9999999999999999999", "address_corrected": False,
+                                     "road_masked": False, "jibun_masked": False}}
+
+    parse_file(str(csv_path), str(output_dir), 1, pnu_ledger)
+
+    out = capsys.readouterr().out
+    assert "생성된 레코드: 1" in out
+    chunk = list(output_dir.glob("*.sql"))[0].read_text(encoding="utf-8")
+    assert "9999999999999999999" not in chunk  # ledger의 다른 항목을 잘못 쓰지 않았는지 확인
+
+
+def test_ledger가_UNPARSEABLE_행을_구제(tmp_path, capsys):
+    csv_path = tmp_path / "식품_일반음식점.csv"
+    # 지번주소가 법정동명 매칭이 안 되는 텍스트 -> 정규식은 무조건 실패.
+    _write_csv(csv_path, [
+        _make_row("3780000", "rescue-001", "경기도 성남시 수정구 알수없는동네",
+                  "경기도 성남시 수정구 알수없는동네 어딘가"),
+    ])
+    output_dir = tmp_path / "out"
+    pnu_ledger = {"rescue-001": {"pnu": "4113110100188880000", "address_corrected": False,
+                                  "road_masked": False, "jibun_masked": False}}
+
+    parse_file(str(csv_path), str(output_dir), 1, pnu_ledger)
+
+    out = capsys.readouterr().out
+    assert "생성된 레코드: 1" in out
+    assert "UNPARSEABLE_OR_DONG_NOT_FOUND" not in out
+
+
+def test_ledger_인자_없이_호출해도_기존과_동일하게_동작(tmp_path, capsys):
+    csv_path = tmp_path / "식품_일반음식점.csv"
+    _write_csv(csv_path, [
+        _make_row("3780000", "no-ledger-001", "경기도 성남시 수정구 태평동",
+                  "경기도 성남시 수정구 태평동 2254"),
+    ])
+    output_dir = tmp_path / "out"
+
+    parse_file(str(csv_path), str(output_dir), 1)  # 4번째 인자 생략 - 기존 호출부와 동일
+
+    out = capsys.readouterr().out
+    assert "생성된 레코드: 1" in out
