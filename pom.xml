@@ -16,7 +16,7 @@
 
   <properties>
     <java.version>21</java.version>
-    <surefire.jvm.args>-Xmx768m</surefire.jvm.args>
+    <surefire.jvm.args>-Xmx4096m</surefire.jvm.args>
   </properties>
 
   <dependencies>

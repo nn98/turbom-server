@@ -11,7 +11,7 @@ public class AuctionListParser {
     private static final Pattern CASE_DELIMITER =
         Pattern.compile("(?m)^\\S+(\\d{4}타경\\d+) 선택$");
     private static final Pattern ITEM_LINE =
-        Pattern.compile("(?m)^\\d{4}타경\\d+ (\\d+)$");
+        Pattern.compile("(?m)^\\d{4}타경\\d+\\s+(\\d+)\\s*$");
 
     public List<AuctionCaseRef> parse(String listPageText) {
         List<Integer> matchStarts = new ArrayList<>();
