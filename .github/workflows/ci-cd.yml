@@ -33,6 +33,15 @@ jobs:
       - name: Build JAR
         run: mvn package -DskipTests --no-transfer-progress
 
+      - name: Backup current JAR
+        run: |
+          if [ -f /home/ubuntu/turbom-server/target/server-0.1.0.jar ]; then
+            cp /home/ubuntu/turbom-server/target/server-0.1.0.jar /home/ubuntu/turbom-server/target/server-0.1.0.jar.bak
+          fi
+
+      - name: Load new seed chunks
+        run: bash scripts/mysql/load-new-chunks.sh
+
       - name: Deploy JAR
         run: cp target/server-0.1.0.jar /home/ubuntu/turbom-server/target/
 
@@ -54,5 +63,13 @@ jobs:
 
       - name: Verify
         run: |
-          sleep 15
-          systemctl is-active --quiet turbom-server.service && echo "OK" || (sudo journalctl -u turbom-server.service -n 30 --no-pager && exit 1)
+          for i in $(seq 1 30); do
+            if curl -sf -G https://turbom.duckdns.org/api/sites/search --data-urlencode "query=성남" > /dev/null; then
+              echo "OK"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::service did not become healthy"
+          sudo journalctl -u turbom-server.service -n 30 --no-pager
+          exit 1
