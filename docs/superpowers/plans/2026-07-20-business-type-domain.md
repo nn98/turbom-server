@@ -15,7 +15,8 @@
 - 기존 `mvn test` 79개 테스트는 최종적으로 전부 통과해야 한다(`PersistenceSmokeTest`의 정확한 행수 검증 포함). 그룹핑 로직이 바뀌는 지점(`csv_동일_pnu의_상세주소별_물건을_리스팅한다`)은 이 테스트 자체의 기존 관례(2026-07-18 주석 참고)대로 실측값으로 갱신한다 — 추측하지 않는다.
 - DB 스키마(`schema.sql`)는 건드리지 않는다.
 - 커밋마다 `mvn test`(관련 클래스만이라도) 통과 확인.
-- 작업 디렉터리: 배포 서버 `/home/ubuntu/app-build`(turbom-server 클론, origin/main과 동기화됨, 최신 커밋 `57cd897`).
+- 작업 디렉터리: 배포 서버 `/home/ubuntu/app-build`(turbom-server 클론, origin/main과 동기화됨, 최신 커밋 `3e25e97` — 이 계획 자체를 추가한 커밋).
+- **이 계획이 이번 세션의 우선 작업**이다 — 사이에 진행된 turbom-spec 전체 문서 스윕(2026-07-20, `CHANGELOG.md` 20~21차)은 별개 작업이고 이 계획의 태스크 내용에 영향 없음(스윕은 API 계약 문서·상권API·schema.sql 대상이었고, 이 계획은 `TenancyQueryService` 도메인 리팩터링이라 겹치는 파일이 없음). 다만 그 스윕에서 얻은 교훈(문서가 코드를 못 따라가면 다음 세션이 잘못된 전제로 작업함)을 반영해 Task 15를 추가함 — 구현이 끝나면 캐노니컬 문서도 그 자리에서 같이 갱신한다.
 
 ---
 
@@ -2236,6 +2237,110 @@ CI가 `mvn test`(테스트 job)를 돌리고, main이므로 deploy job도 트리
 
 ---
 
+## Task 15: turbom-spec 캐노니컬 문서를 구현 완료 상태로 갱신
+
+**Files (turbom-spec 저장소, `/home/ubuntu/turbom-spec` — 없으면 `git clone https://github.com/nn98/turbom-spec.git`):**
+- Modify: `backend-spec.md` §3.1(무점포업종 분리 서술)
+- Modify: `의사결정-기록.md` §11(상태를 "구현 대기"→"완료"로)
+- Modify: `CHANGELOG.md`(다음 번호 항목 추가)
+- Create: `archive/YYYY-MM-DD/*.before-businesstype-impl`(수정 전 스냅샷, 저장소 관례)
+
+**Interfaces:** 없음(문서만, 코드 변경 없음). Task 14 완료 후, 실제 커밋 해시가 나온 뒤 진행한다.
+
+**왜 이 태스크가 필요한가**: Task 12에서 `NoStorefrontSubCategories`를 지우고 `BusinessTypeRegistry`로
+대체하는데, `backend-spec.md` §3.1은 지금 `NoStorefrontSubCategories.isNoStorefront(category,
+subCategory)`를 캐노니컬 도메인 모델로 서술하고 있다. 코드가 바뀐 뒤 이 문서를 안 고치면, 존재하지
+않는 클래스를 캐노니컬이라고 가리키는 채로 방치되는 셈이다 — 2026-07-20 전체 스윕에서 바로 이런
+종류의 방치(코드는 바뀌었는데 캐노니컬 문서는 안 바뀜)가 여러 건 발견돼 고친 직후라, 이번엔 같은
+실수를 반복하지 않는다.
+
+- [ ] **Step 1: 스냅샷**
+
+```bash
+cd /home/ubuntu/turbom-spec && git pull -q
+mkdir -p archive/$(date +%F)
+cp backend-spec.md archive/$(date +%F)/backend-spec.md.before-businesstype-impl
+cp 의사결정-기록.md archive/$(date +%F)/의사결정-기록.md.before-businesstype-impl
+cp CHANGELOG.md archive/$(date +%F)/CHANGELOG.md.before-businesstype-impl
+```
+
+- [ ] **Step 2: `backend-spec.md` §3.1의 "무점포업종 분리" 절을 실제 구현 기준으로 교체**
+
+기존 절(`NoStorefrontSubCategories.isNoStorefront(category, subCategory)`가 47개 목록을 정적으로
+관리한다는 서술)을 아래로 교체한다 — 47개 목록 자체와 의미는 안 바뀌었으니 그 설명은 유지하고,
+클래스명과 "위치미특정"(신규 축, §9 근거) 부분만 추가:
+
+```markdown
+#### 업종 분류(`BusinessType`)와 위치미특정 (2026-07-20, `NoStorefrontSubCategories`에서 재설계)
+
+인허가 원본은 (category, subCategory)별로 "층/호 정보 없음" 비율이 실측 기준 뚜렷하게 이분됨 —
+통신판매업·방문판매업·전화권유판매업·의료기기판매(임대)업 등 47개 (category, subCategory) 조합은
+90% 이상이 상세주소 없음(업종 특성상 자가/사무실 주소로 신고 가능, 물리적 점포 개념이 약함).
+정상 매장업종(일반음식점 20.4%, 휴게음식점 17.5% 등)은 이 비율이 낮고 순수 개별 데이터 누락임.
+
+`BusinessTypeRegistry.lookup(category, subCategory).locationCertainty()`가 이 47개 목록을 `LOCATED`/
+`NO_PHYSICAL_STORE` 두 값으로 관리(구 `NoStorefrontSubCategories.isNoStorefront`와 값·의미 동일,
+클래스만 이관). 판정은 **레코드 단위가 아니라 같은 PNU 내 같은 businessName 단위** — 한 상호명이
+무점포 후보 업종과 정상 매장업종(또는 실제 층/호 정보가 있는 레코드) 라이선스를 동시에 갖고 있으면
+그 상호명의 레코드 전부를 매장으로 취급한다(`SitePartitioner`). 상호명 전체가 무점포 후보 업종이면서
+층/호 정보도 전혀 없을 때만 `Site.noStorefrontRegistrations`로 분류, Unit 그룹핑 자체를 안 거침.
+
+**위치미특정(`unlocatedRegistrations`, 신규)**: 담배소매업(84.5%가 층/호 정보 없음, 90% 임계값
+미달이라 위 무점포 목록엔 없음)처럼 카테고리 자체는 매장이 있는데 개별 레코드에 상세주소가 전혀
+없는 경우가 있다 — 이건 업종 속성이 아니라 **레코드 단위 데이터 완비 여부**라, `LocationIdentity`가
+매장/무점포 판정과 별개로 판단한다(`UnitGrouper`). 상세: `의사결정-기록.md` §9·§11,
+`server/docs/superpowers/specs/2026-07-20-business-type-domain-design.md`.
+
+**관련 인허가 페어링(신규)**: 집단급식소/위탁급식영업처럼 같은 물건에서 서로 다른 인허가로 뜨는
+경우, `BusinessTypeRegistry`가 두 (category, subCategory)를 서로의 `relatedTypeKeys`로 등록해두면
+같은 Unit 안에서 `RelatedLicenseLinker`가 자동으로 묶는다(`Unit.relatedLicenseGroups`).
+
+**상태 신뢰도(신규)**: 담배소매업은 담배사업법상 거리제한(50~100m) 때문에 폐업신고를 미루는
+"알박기"와, 세무서 폐업신고와 지자체 담배소매인 폐업신고 이원화로 인한 누락이 흔하고, 별개로
+인허가 자체가 상호 변경과 무관하게 승계되는 경우도 있어(§9) `licensed_at`이 실제 개업일보다 훨씬
+이를 수 있다. `BusinessType.reliabilitySignal(businessName, licensedAt, context)`가 같은 자리에
+이 레코드보다 늦게 시작한 다른 상호가 있으면 `NEEDS_VERIFICATION`을 반환 — API 응답의
+`timeline[].reliabilitySignal`/`reliabilitySignalReason`으로 노출(참고 신호, 정밀 판정 아님).
+```
+
+- [ ] **Step 3: `의사결정-기록.md` §11 상태 갱신**
+
+§11("업종(BusinessType) 도메인 재설계 — 설계 확정, 구현 대기") 맨 끝의 **상태** 문단을 교체:
+
+```markdown
+**상태**: 완료, 운영 반영됨. 커밋: `turbom-server` `<Task 14 Step 6/7 실제 커밋 해시로 교체>`.
+구현 중 설계에서 벗어난 점이 있으면 여기 기록(예: `csv_동일_pnu의_상세주소별_물건을_리스팅한다`
+테스트의 실측 카운트 갱신값 등). 상세: `backend-spec.md` §3.1,
+`server/docs/superpowers/plans/2026-07-20-business-type-domain.md`.
+```
+
+- [ ] **Step 4: `CHANGELOG.md`에 항목 추가**
+
+`## 이력` 맨 위(최신)에 다음 번호(21차 다음이면 22차)로 추가:
+
+```markdown
+### 2026-07-20 (22차) — 업종(BusinessType) 도메인 재설계 구현 완료 (`turbom-server`)
+
+`NoStorefrontSubCategories`(정적 Set) + `TenancyQueryService`의 절차적 로직을 `BusinessType`
+도메인 개념(`domain.businesstype`) + 협력자(`SitePartitioner`/`UnitGrouper`/`TenancyMerger`/
+`RelatedLicenseLinker`)로 재편. 집단급식소/위탁급식영업 관련 인허가 페어링, 담배소매업처럼
+매장은 있지만 상세주소가 없는 레코드의 위치미특정 분리(레코드 단위 판정, §9 반영),
+businessStatus/licensed_at 신뢰도 신호(`reliabilitySignal`)를 신규 지원. 기존 79개 테스트 +
+신규 테스트 전부 통과. 커밋: `turbom-server` `<실제 커밋 해시>`. 상세: `의사결정-기록.md` §11,
+`backend-spec.md` §3.1.
+```
+
+- [ ] **Step 5: 커밋+push**
+
+```bash
+cd /home/ubuntu/turbom-spec
+git add -A
+git commit -m "docs: mark BusinessType domain redesign as implemented, sync backend-spec.md §3.1"
+git push
+```
+
+---
+
 ## 스펙 대비 커버리지 체크
 
 - 집단급식소/위탁급식영업 페어링 → Task 4(레지스트리 등록) + Task 10(RelatedLicenseLinker) + Task 14(통합 테스트). ✅
@@ -2245,4 +2350,5 @@ CI가 `mvn test`(테스트 job)를 돌리고, main이므로 deploy job도 트리
 - domain 순수성(JPA 비의존) → Task 2/5에서 명시적으로 엔티티 대신 원시값/도메인 값객체 사용. ✅
 - NoStorefrontSubCategories 값 이관(행동 불변) → Task 4에서 47개 항목 그대로 복사 + 회귀 테스트. ✅
 - 기존 79개 테스트 회귀 방지 → Task 12/13/14에서 단계별 확인, 알려진 드리프트(csv 픽스처 카운트)는 명시적 처리 절차 제공. ✅
+- 캐노니컬 문서(turbom-spec) 동기화 → Task 15(구현 완료 후 `backend-spec.md`/`의사결정-기록.md`/`CHANGELOG.md` 갱신). 2026-07-20 전체 문서 스윕에서 나온 교훈 반영. ✅
 - 비목표(좌표 기반 퍼지매칭, 3자 이상 그룹, 불필요 일급컬렉션화) → 전부 구현 안 함, Task 5/6 주석에 명시. ✅
