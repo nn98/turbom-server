@@ -1,6 +1,7 @@
 package com.nextstep.application;
 
 import com.nextstep.domain.site.AddressDetailParser;
+import com.nextstep.domain.site.AddressQuery;
 import com.nextstep.domain.site.NoStorefrontSubCategories;
 import com.nextstep.domain.site.Pnu;
 import com.nextstep.domain.site.Site;
@@ -38,7 +39,15 @@ public class TenancyQueryService {
     }
 
     public List<Site> searchSites(String query) {
-        return assembleSites(recordRepository.searchByAddress(query));
+        AddressQuery addressQuery = AddressQuery.of(query);
+        List<LicensedBusinessRecordEntity> candidates = recordRepository.searchByAddress(addressQuery.anchorToken());
+        String trimmedQuery = query.trim();
+        List<LicensedBusinessRecordEntity> records = candidates.stream()
+            // pnu 정확일치는 토큰 매칭과 별개로 항상 통과시킨다 — pnu는 사람이 읽는 주소 텍스트에
+            // 그대로 안 들어있어서(별도 코드값) matchesAll이 못 잡는다.
+            .filter(r -> trimmedQuery.equals(r.getPnu()) || addressQuery.matchesAll(r.getJibunAddress(), r.getRoadAddress()))
+            .toList();
+        return assembleSites(records);
     }
 
     public Optional<Site> findSiteWithUnits(String pnu) {

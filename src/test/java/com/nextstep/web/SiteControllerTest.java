@@ -219,6 +219,57 @@ class SiteControllerTest {
             .andExpect(jsonPath("$.noStorefrontRegistrations[0].subCategory").value("통신판매업"));
     }
 
+    private static final String TOKEN_ORDER_PNU = "4113110100100960005";
+    private static final String DELETE_TOKEN_ORDER_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + TOKEN_ORDER_PNU + "'";
+    private static final String INSERT_TOKEN_ORDER =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (9900001001, '4113110100100960005', '식품', '일반음식점', 'test-license-70', '토큰매칭테스트가게', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 10 (검색토큰테스트동)', '경기도 성남시 수정구 검색토큰테스트동 555', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+
+    @Test
+    @Sql(statements = {DELETE_TOKEN_ORDER_PNU, INSERT_TOKEN_ORDER})
+    @Sql(statements = DELETE_TOKEN_ORDER_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 검색어_토큰이_주소문자열에서_떨어져있어도_전부_있으면_찾는다() throws Exception {
+        // 2026-07-22: 예전엔 검색어 전체를 하나의 substring으로만 비교해서, jibunAddress
+        // 원문에서 서로 떨어져 있는 두 토큰("성남시"...555, 중간에 "수정구 검색토큰테스트동"이
+        // 끼어있음)을 이 순서로 검색하면 실패했음. 토큰 단위 AND 매칭으로 정정
+        mockMvc.perform(get("/api/sites/search").param("query", "성남시 555"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.candidates[*].pnu", org.hamcrest.Matchers.hasItem(TOKEN_ORDER_PNU)));
+    }
+
+    private static final String NUMERIC_NOISE_PNU = "4113110100100960006";
+    private static final String DELETE_NUMERIC_NOISE_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + NUMERIC_NOISE_PNU + "'";
+    private static final String INSERT_NUMERIC_NOISE =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "VALUES (9900001002, '4113110100100960006', '식품', '일반음식점', 'test-license-71', '숫자노이즈테스트가게', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 11 (검색토큰테스트동)', '경기도 성남시 수정구 검색토큰테스트동 15559', "
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+
+    @Test
+    @Sql(statements = {DELETE_TOKEN_ORDER_PNU, INSERT_TOKEN_ORDER, DELETE_NUMERIC_NOISE_PNU, INSERT_NUMERIC_NOISE})
+    @Sql(statements = {DELETE_TOKEN_ORDER_PNU, DELETE_NUMERIC_NOISE_PNU}, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 숫자_검색어는_다른_숫자에_묻힌_우연한_일치를_걸러낸다() throws Exception {
+        // TOKEN_ORDER_PNU의 진짜 번지는 "555"(경계 있음) — 찾아야 함.
+        // NUMERIC_NOISE_PNU는 "15559" 안에 "555"가 우연히 들어있을 뿐(앞뒤에 숫자가 더 붙어있음)
+        // — 예전 substring 검색이었다면 이것도 걸렸을 것, 이제는 경계 체크로 제외돼야 함
+        mockMvc.perform(get("/api/sites/search").param("query", "555"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.candidates[*].pnu", org.hamcrest.Matchers.hasItem(TOKEN_ORDER_PNU)))
+            .andExpect(jsonPath("$.candidates[*].pnu", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(NUMERIC_NOISE_PNU))));
+    }
+
     @Test
     void csv_동일_pnu의_상세주소별_물건을_리스팅한다() throws Exception {
         mockMvc.perform(get("/api/sites/" + CSV_ADDRESS_UNIT_PNU))
