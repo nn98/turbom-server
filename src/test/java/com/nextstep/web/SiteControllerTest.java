@@ -276,7 +276,9 @@ class SiteControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.site.latitude").isNumber())
             .andExpect(jsonPath("$.site.longitude").isNumber())
-            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(30)))
+            // 2026-07-22: Task 2(겹침감지 재분리)로 30 -> 31 — 층/호 미파싱 그룹 중 실제로 다른
+            // 상호가 겹치는 기간에 영업한 사례가 재분리됨(TenancyQueryServiceTest 참고)
+            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(31)))
             // 5 = 캐치올 Unit의 병합 후 개수. 2026-07-18: businessName 단위 무점포업종 분리(Task 2)로
             // 20건이 noStorefrontRegistrations로 이동하며 21 -> 5로 감소 (다른 Unit이 늘어난 게 아님)
             .andExpect(jsonPath("$.units[*].totalTenancyCount", org.hamcrest.Matchers.hasItem(5)))

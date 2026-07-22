@@ -211,7 +211,10 @@ class TenancyQueryServiceTest {
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
             + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
             + "VALUES (9900000101, '4113110100100980000', '동물', '동물병원', 'test-license-3', '동일지번 도로명1', "
-            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            // 2026-07-22: Task 2(겹침감지) 도입 이후 closedAt=NULL(영업중)로 두면 아래 도로명2 레코드와
+            // 기간이 겹쳐 "물리적으로 불가능한 겹침"으로 오인돼 재분리됨 — 이 테스트의 목적(도로명
+            // 표기 차이만으로는 분리하지 않음)과 무관하므로 기간을 겹치지 않게 폐업 처리
+            + "NULL, '폐업', '0002', '폐업', '2020-01-01', '2020-06-01', "
             + "'경기도 성남시 수정구 테스트로 2, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 98', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
     private static final String INSERT_SAME_JIBUN_ROAD_2 =
@@ -223,6 +226,82 @@ class TenancyQueryServiceTest {
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 2, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 98', "
             + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+    private static final String OVERLAP_TIER2_PNU = "4113110100100940000";
+    private static final String DELETE_OVERLAP_TIER2_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + OVERLAP_TIER2_PNU + "'";
+    // 시나리오: 층만 파싱되고(B1) 호실번호 없음 -> 1차 키로는 뭉침. 지번주소 텍스트가 서로
+    // 달라서(94-1 vs 94-2) 2차 키로 해소돼야 함(AK플라자 지하1층 "일부호" 반복 사례 재현)
+    private static final String INSERT_OVERLAP_TIER2_A =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (9900000401, '4113110100100940000', '식품', '즉석판매제조가공업', 'test-license-40', '가락족발A', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 7, 지하1층 일부호 (테스트동)', '경기도 성남시 수정구 테스트동 94-1 지하1층', "
+            + "FALSE, TRUE, NULL, 'B1', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_OVERLAP_TIER2_B =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (9900000402, '4113110100100940000', '식품', '즉석판매제조가공업', 'test-license-41', '가락생선B', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-06-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 7, 지하1층 일부호 (테스트동)', '경기도 성남시 수정구 테스트동 94-2 지하1층', "
+            + "FALSE, TRUE, NULL, 'B1', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+
+    private static final String OVERLAP_TIER3_PNU = "4113110100100930000";
+    private static final String DELETE_OVERLAP_TIER3_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + OVERLAP_TIER3_PNU + "'";
+    // 시나리오: 층/호도 같고(B1/없음) 지번·도로명 원문도 완전히 동일 -> 2차 키로도 해소 안 됨,
+    // 3차(상호명)까지 내려가야 함(가락시장처럼 상세주소 자체에 구분 정보가 전혀 없는 경우)
+    private static final String INSERT_OVERLAP_TIER3_C =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (9900000501, '4113110100100930000', '식품', '식품소분업', 'test-license-50', '가락상회C', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 8, 지하1층 일부호 (테스트동)', '경기도 성남시 수정구 테스트동 93 지하1층', "
+            + "FALSE, TRUE, NULL, 'B1', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_OVERLAP_TIER3_D =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (9900000502, '4113110100100930000', '식품', '식품소분업', 'test-license-51', '가락상회D', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-06-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 8, 지하1층 일부호 (테스트동)', '경기도 성남시 수정구 테스트동 93 지하1층', "
+            + "FALSE, TRUE, NULL, 'B1', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+
+    private static final String SAME_DAY_HANDOVER_PNU = "4113110100100920000";
+    private static final String DELETE_SAME_DAY_HANDOVER_PNU =
+        "DELETE FROM licensed_business_record WHERE pnu = '" + SAME_DAY_HANDOVER_PNU + "'";
+    // 시나리오: 다른 상호지만 A 폐업일 == B 개업일(당일 인수인계) -> 겹침 아님, 분리되면 안 됨
+    private static final String INSERT_SAME_DAY_HANDOVER_A =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (9900000601, '4113110100100920000', '식품', '식품소분업', 'test-license-60', '인수인계전', "
+            + "NULL, '폐업', '0002', '폐업', '2019-01-01', '2020-01-01', "
+            + "'경기도 성남시 수정구 테스트로 9, 지하1층 일부호 (테스트동)', '경기도 성남시 수정구 테스트동 92 지하1층', "
+            + "FALSE, TRUE, NULL, 'B1', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
+    private static final String INSERT_SAME_DAY_HANDOVER_B =
+        "INSERT INTO licensed_business_record "
+            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
+            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
+            + "address_separated, address_corrected, parsed_building_name, parsed_floor, parsed_unit_no, "
+            + "parse_confidence, parse_method, local_gov_code, original_x, original_y) "
+            + "VALUES (9900000602, '4113110100100920000', '식품', '식품소분업', 'test-license-61', '인수인계후', "
+            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
+            + "'경기도 성남시 수정구 테스트로 9, 지하1층 일부호 (테스트동)', '경기도 성남시 수정구 테스트동 92 지하1층', "
+            + "FALSE, TRUE, NULL, 'B1', NULL, 'HIGH', 'REGEX', '3780000', 212818.475436898, 438579.588327304)";
 
     @Autowired TenancyQueryService tenancyQueryService;
 
@@ -436,7 +515,10 @@ class TenancyQueryServiceTest {
         // 캐치올 Unit("단일(상세주소불명)")은 애초에 parsedFloor/parsedUnitNo가 없는 레코드들이라
         // 무점포 후보 subCategory와 함께 물리적 신호가 없는 businessName 비율이 높아 감소폭이 가장 큼.
         // 39 - 5 = noStorefrontRegistrations(20)로 옮겨간 레코드 수와 정합(59-39=20).
-        assertThat(site.units()).hasSize(30);
+        // 2026-07-22: Task 2(겹침감지 재분리) 도입으로 30 -> 31. 실데이터 중 층/호 파싱이 없는
+        // 그룹에서 서로 다른 상호가 겹치는 기간으로 영업한 사례가 실제로 있어 1개 그룹이 2개로
+        // 재분리됨 — Unit 개수만 늘고 Tenancy 총합(39)은 그대로(재분리는 재배치일 뿐 레코드 증감이 아님).
+        assertThat(site.units()).hasSize(31);
         assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(39);
         // 5는 "단일(상세주소불명)" 캐치올 Unit 몫 — 다른 Unit의 개수가 늘어난 게 아니라
         // 무점포업종만 있던 businessName들이 noStorefrontRegistrations로 옮겨가며 캐치올 Unit만 크게 줄었다
@@ -447,5 +529,44 @@ class TenancyQueryServiceTest {
             .map(tenancy -> tenancy.status())
             .distinct())
             .contains("영업/정상", "폐업", "제외/삭제/전출");
+    }
+
+    @Test
+    @Sql(statements = {DELETE_OVERLAP_TIER2_PNU, INSERT_OVERLAP_TIER2_A, INSERT_OVERLAP_TIER2_B})
+    @Sql(statements = DELETE_OVERLAP_TIER2_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 층만_겹치고_지번주소가_다르면_지번주소로_재분리된다() {
+        Site site = tenancyQueryService.findSiteWithUnits(OVERLAP_TIER2_PNU).orElseThrow();
+
+        assertThat(site.units()).hasSize(2);
+        assertThat(site.units()).flatExtracting(Unit::tenancies)
+            .extracting(Tenancy::businessName)
+            .containsExactlyInAnyOrder("가락족발A", "가락생선B");
+        assertThat(site.units()).allSatisfy(unit -> assertThat(unit.tenancies()).hasSize(1));
+    }
+
+    @Test
+    @Sql(statements = {DELETE_OVERLAP_TIER3_PNU, INSERT_OVERLAP_TIER3_C, INSERT_OVERLAP_TIER3_D})
+    @Sql(statements = DELETE_OVERLAP_TIER3_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 지번주소까지_같으면_상호명으로_재분리된다() {
+        Site site = tenancyQueryService.findSiteWithUnits(OVERLAP_TIER3_PNU).orElseThrow();
+
+        assertThat(site.units()).hasSize(2);
+        assertThat(site.units()).flatExtracting(Unit::tenancies)
+            .extracting(Tenancy::businessName)
+            .containsExactlyInAnyOrder("가락상회C", "가락상회D");
+        assertThat(site.units()).allSatisfy(unit -> assertThat(unit.tenancies()).hasSize(1));
+    }
+
+    @Test
+    @Sql(statements = {DELETE_SAME_DAY_HANDOVER_PNU, INSERT_SAME_DAY_HANDOVER_A, INSERT_SAME_DAY_HANDOVER_B})
+    @Sql(statements = DELETE_SAME_DAY_HANDOVER_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 당일_인수인계는_겹침이_아니라_분리되지_않는다() {
+        Site site = tenancyQueryService.findSiteWithUnits(SAME_DAY_HANDOVER_PNU).orElseThrow();
+
+        assertThat(site.units()).hasSize(1);
+        assertThat(site.units().get(0).tenancies()).hasSize(2);
+        assertThat(site.units().get(0).tenancies())
+            .extracting(Tenancy::businessName)
+            .containsExactlyInAnyOrder("인수인계전", "인수인계후");
     }
 }

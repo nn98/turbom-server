@@ -8,6 +8,7 @@ import com.nextstep.domain.site.Site;
 import com.nextstep.domain.tenancy.Tenancy;
 import com.nextstep.domain.tenancy.TenancyPeriod;
 import com.nextstep.domain.unit.LocationSource;
+import com.nextstep.domain.unit.OccupancySpan;
 import com.nextstep.domain.unit.Unit;
 import com.nextstep.infra.geo.KoreanTmCoordinateConverter;
 import com.nextstep.infra.persistence.LicensedBusinessRecordEntity;
@@ -18,11 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.function.Function;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Transactional(readOnly = true)
@@ -228,16 +231,81 @@ public class TenancyQueryService {
     }
 
     private List<UnitGroup> unitGroups(String pnu, List<LicensedBusinessRecordEntity> records) {
-        Map<String, List<LicensedBusinessRecordEntity>> recordsByAddress = records.stream()
-            .collect(Collectors.groupingBy(this::unitKey, LinkedHashMap::new, Collectors.toList()));
+        List<List<LicensedBusinessRecordEntity>> primaryGroups = groupByKey(records, this::unitKey);
+        List<List<LicensedBusinessRecordEntity>> resolvedGroups = primaryGroups.stream()
+            .flatMap(this::resolveContention)
+            .toList();
 
         List<UnitGroup> groups = new ArrayList<>();
         int index = 1;
-        for (List<LicensedBusinessRecordEntity> addressRecords : recordsByAddress.values()) {
-            groups.add(new UnitGroup(unitId(pnu, index), addressRecords));
+        for (List<LicensedBusinessRecordEntity> groupRecords : resolvedGroups) {
+            groups.add(new UnitGroup(unitId(pnu, index), groupRecords));
             index++;
         }
         return groups;
+    }
+
+    private Stream<List<LicensedBusinessRecordEntity>> resolveContention(List<LicensedBusinessRecordEntity> group) {
+        // 구체적 호실번호(UNIT:: 키)가 있는 그룹은 겹쳐도 그대로 둔다 — 실측 결과 실제 문제
+        // 사례(가락시장/AK플라자/백현동/롯데백화점)는 전부 호실번호 없는 케이스였고, 있는데
+        // 겹치는 경우는 대부분 폐업신고 누락으로 보는 게 더 합리적(기존 회귀 테스트도 이 전제).
+        if (unitKey(group.get(0)).startsWith("UNIT::") || !isContended(group)) {
+            return Stream.of(group);
+        }
+        List<List<LicensedBusinessRecordEntity>> byAddressText = groupByKey(group, this::addressTextKey);
+        return byAddressText.stream().flatMap(subGroup -> isContended(subGroup)
+            ? groupByKey(subGroup, LicensedBusinessRecordEntity::getBusinessName).stream()
+            : Stream.of(subGroup));
+    }
+
+    private List<List<LicensedBusinessRecordEntity>> groupByKey(
+        List<LicensedBusinessRecordEntity> records, Function<LicensedBusinessRecordEntity, String> keyFn
+    ) {
+        Map<String, List<LicensedBusinessRecordEntity>> byKey = records.stream()
+            .collect(Collectors.groupingBy(keyFn, LinkedHashMap::new, Collectors.toList()));
+        return new ArrayList<>(byKey.values());
+    }
+
+    private boolean isContended(List<LicensedBusinessRecordEntity> records) {
+        Map<String, List<LicensedBusinessRecordEntity>> byBusinessName = records.stream()
+            .collect(Collectors.groupingBy(LicensedBusinessRecordEntity::getBusinessName, LinkedHashMap::new, Collectors.toList()));
+        if (byBusinessName.size() < 2) return false;
+
+        List<List<OccupancySpan>> spansByName = byBusinessName.entrySet().stream()
+            .map(entry -> occupancySpans(entry.getKey(), entry.getValue()))
+            .toList();
+
+        for (int i = 0; i < spansByName.size(); i++) {
+            for (int j = i + 1; j < spansByName.size(); j++) {
+                for (OccupancySpan a : spansByName.get(i)) {
+                    for (OccupancySpan b : spansByName.get(j)) {
+                        if (a.overlaps(b)) return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private List<OccupancySpan> occupancySpans(String businessName, List<LicensedBusinessRecordEntity> records) {
+        return mergeByGap(records).stream()
+            .map(stint -> {
+                LocalDate start = stint.stream()
+                    .map(LicensedBusinessRecordEntity::getLicensedAt)
+                    .min(LocalDate::compareTo)
+                    .orElseThrow();
+                boolean anyOpen = stint.stream().anyMatch(r -> r.getClosedAt() == null);
+                LocalDate end = anyOpen ? null : stint.stream()
+                    .map(LicensedBusinessRecordEntity::getClosedAt)
+                    .max(LocalDate::compareTo)
+                    .orElseThrow();
+                return new OccupancySpan(businessName, start, end);
+            })
+            .toList();
+    }
+
+    private String addressTextKey(LicensedBusinessRecordEntity record) {
+        return normalize(record.getJibunAddress()) + "::" + normalize(record.getRoadAddress());
     }
 
     private String unitKey(LicensedBusinessRecordEntity record) {
