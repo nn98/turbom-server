@@ -177,6 +177,24 @@ class SiteControllerTest {
     }
 
     @Test
+    @Sql(statements = {DELETE_DUPLICATE_PNU, INSERT_DUPLICATE_UNIT_1, INSERT_DUPLICATE_UNIT_2})
+    @Sql(statements = DELETE_DUPLICATE_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void 검색결과_candidate에도_유닛별_층호_파싱정보가_내려간다() throws Exception {
+        // 2026-07-21: 프론트가 건물별로 묶은 뒤 층/호로 재분리하려면 상세 API를 자리마다
+        // 추가 호출할 필요 없이 검색 결과 자체에 유닛별 파싱 결과가 있어야 한다는 요청 반영
+        mockMvc.perform(get("/api/sites/search").param("query", "테스트동 99"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.candidates", org.hamcrest.Matchers.hasSize(1)))
+            .andExpect(jsonPath("$.candidates[0].units", org.hamcrest.Matchers.hasSize(2)))
+            .andExpect(jsonPath("$.candidates[0].units[*].unitId",
+                org.hamcrest.Matchers.containsInAnyOrder(DUPLICATE_PNU + "-U1", DUPLICATE_PNU + "-U2")))
+            .andExpect(jsonPath("$.candidates[0].units[*].parsedFloor",
+                org.hamcrest.Matchers.containsInAnyOrder("1", "2")))
+            .andExpect(jsonPath("$.candidates[0].units[*].parseConfidence",
+                org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("HIGH"))));
+    }
+
+    @Test
     @Sql(statements = {DELETE_RAW_STATUS_PNU, INSERT_RAW_STATUS})
     @Sql(statements = DELETE_RAW_STATUS_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     void 상세영업상태가_없어도_영업상태_원본값을_그대로_응답한다() throws Exception {

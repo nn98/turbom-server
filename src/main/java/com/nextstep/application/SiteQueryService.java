@@ -118,8 +118,11 @@ public class SiteQueryService {
             .map(Tenancy::subCategory)
             .findFirst()
             .orElse(null);
+        List<CandidateUnitDto> units = site.units().stream()
+            .map(u -> new CandidateUnitDto(u.unitId(), u.parsedFloor(), u.parsedUnitNo(), u.parseConfidence()))
+            .toList();
         return new SiteCandidateDto(site.pnu().value(), site.jibunAddress(), site.roadAddress(),
-            lat, lon, site.units().size(), closedCount, currentSubCategory);
+            lat, lon, site.units().size(), closedCount, currentSubCategory, units);
     }
 
     private SiteDto toSiteDto(Site site) {

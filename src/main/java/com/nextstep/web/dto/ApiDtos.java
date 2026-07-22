@@ -9,9 +9,14 @@ public class ApiDtos {
     }
 
     // currentSubCategory: 현재 영업 중인 업종 소분류. 전체 공실이면 null.
+    // units: 상세 API(units[])의 축약판 — 프론트가 건물별로 묶은 뒤 층/호로 재분리할 때
+    // 자리당 상세 API를 추가 호출하지 않아도 되도록 검색 결과에도 실어준다.
     public record SiteCandidateDto(String pnu, String jibunAddress, String roadAddress,
                                     Double latitude, Double longitude, int unitCount, int closedCount,
-                                    String currentSubCategory) {
+                                    String currentSubCategory, List<CandidateUnitDto> units) {
+    }
+
+    public record CandidateUnitDto(String unitId, String parsedFloor, String parsedUnitNo, String parseConfidence) {
     }
 
     public record SiteDetailResponse(SiteDto site, List<UnitSummaryDto> units,
