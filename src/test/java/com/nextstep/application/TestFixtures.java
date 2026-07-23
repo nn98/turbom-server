@@ -45,6 +45,16 @@ final class TestFixtures {
         return entity;
     }
 
+    static LicensedBusinessRecordEntity recordWithDates(long id, String category, String subCategory,
+                                                          String businessName, LocalDate licensedAt,
+                                                          LocalDate closedAt) {
+        LicensedBusinessRecordEntity entity = record(id, category, subCategory, businessName,
+            null, null, null, "HIGH");
+        set(entity, "licensedAt", licensedAt);
+        set(entity, "closedAt", closedAt);
+        return entity;
+    }
+
     private static LicensedBusinessRecordEntity newInstance() {
         try {
             var ctor = LicensedBusinessRecordEntity.class.getDeclaredConstructor();
