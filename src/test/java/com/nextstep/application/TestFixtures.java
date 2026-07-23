@@ -30,6 +30,21 @@ final class TestFixtures {
         return entity;
     }
 
+    static LicensedBusinessRecordEntity recordForOverlap(long id, String category, String subCategory,
+                                                           String businessName, String parsedBuildingName,
+                                                           String parsedFloor, String parsedUnitNo,
+                                                           String parseConfidence, LocalDate licensedAt,
+                                                           LocalDate closedAt, String jibunAddress,
+                                                           String roadAddress) {
+        LicensedBusinessRecordEntity entity = record(id, category, subCategory, businessName,
+            parsedBuildingName, parsedFloor, parsedUnitNo, parseConfidence);
+        set(entity, "licensedAt", licensedAt);
+        set(entity, "closedAt", closedAt);
+        set(entity, "jibunAddress", jibunAddress);
+        set(entity, "roadAddress", roadAddress);
+        return entity;
+    }
+
     private static LicensedBusinessRecordEntity newInstance() {
         try {
             var ctor = LicensedBusinessRecordEntity.class.getDeclaredConstructor();
