@@ -217,7 +217,8 @@ public class TenancyQueryService {
             null,
             new TenancyPeriod(licensedAt, closedAt),
             representative.getBusinessStatus(),
-            "license_only"
+            "license_only",
+            com.nextstep.domain.businesstype.ReliabilitySignal.confirmed()
         );
     }
 

@@ -11,17 +11,20 @@ class UnitStatisticsTest {
 
     private Tenancy closed(LocalDate start, LocalDate end) {
         return new Tenancy(1L, "가게", "음식", "일반음식점", null,
-            new TenancyPeriod(start, end), "폐업", "license_only");
+            new TenancyPeriod(start, end), "폐업", "license_only",
+            com.nextstep.domain.businesstype.ReliabilitySignal.confirmed());
     }
 
     private Tenancy active(LocalDate start) {
         return new Tenancy(2L, "가게2", "음식", "일반음식점", null,
-            new TenancyPeriod(start, null), "영업/정상", "license_only");
+            new TenancyPeriod(start, null), "영업/정상", "license_only",
+            com.nextstep.domain.businesstype.ReliabilitySignal.confirmed());
     }
 
     private Tenancy closedWithoutEndDate(LocalDate start) {
         return new Tenancy(3L, "가게3", "생활", "통신판매업", null,
-            new TenancyPeriod(start, null), "취소/말소/만료/정지/중지", "license_only");
+            new TenancyPeriod(start, null), "취소/말소/만료/정지/중지", "license_only",
+            com.nextstep.domain.businesstype.ReliabilitySignal.confirmed());
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.nextstep.domain.tenancy;
 
+import com.nextstep.domain.businesstype.ReliabilitySignal;
+
 public record Tenancy(
     Long id,
     String businessName,
@@ -8,7 +10,8 @@ public record Tenancy(
     String industryDetail,
     TenancyPeriod period,
     String status,
-    String enrichmentSource
+    String enrichmentSource,
+    ReliabilitySignal reliabilitySignal
 ) {
     private static final String ACTIVE_STATUS = "영업/정상";
 
