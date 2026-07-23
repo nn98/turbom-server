@@ -8,8 +8,7 @@ class TenancyTest {
 
     private Tenancy withStatus(String status, LocalDate licensedAt, LocalDate closedAt) {
         return new Tenancy(1L, "가게", "생활", "통신판매업", null,
-            new TenancyPeriod(licensedAt, closedAt), status, "license_only",
-            com.nextstep.domain.businesstype.ReliabilitySignal.confirmed());
+            new TenancyPeriod(licensedAt, closedAt), status, "license_only");
     }
 
     @Test

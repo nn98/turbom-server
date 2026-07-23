@@ -2215,44 +2215,9 @@ public class ApiDtos {
 }
 ```
 
-**2026-07-23 보정 — `search()`의 후보 제외 필터 버그 발견**: Task 12 구현·검증 중 `mvn clean test`
-전체 스위트에서 `SiteControllerTest.신흥동으로_검색하면_후보가_나온다`(기대 1588건 → 실측
-423~424건)와 토큰검색 관련 테스트 2건이 실패하는 걸 발견, 단일 테스트로 격리 실행해도 동일하게
-재현돼(테스트 오염 아님) 근본 원인을 추적했다. `SiteQueryService.search()`의 기존 필터
-(`.filter(site -> !site.units().isEmpty())`, 2026-07-18 도입 — 무점포업종만 있는 PNU를 후보에서
-제외하려던 목적)가, Task 12에서 `LocationIdentity`의 UNLOCATED 분리가 처음 실제 쿼리 경로에
-연결되면서 **의도치 않게 훨씬 넓은 범위를 걸러내기 시작했다**: 상세주소가 전무해 `units`가
-비어있지만 `unlocatedRegistrations`에는 실제 매장업종 데이터가 있는 PNU(예: 담배소매업처럼
-카테고리 자체는 매장이 있지만 개별 레코드에 층/호가 없는 경우)까지 전부 후보에서 사라져버렸다
-— 원래 이 필터가 걸러내려던 "진짜 무점포 업종만 있는 경우"(`noStorefrontRegistrations`만 있고
-`units`·`unlocatedRegistrations` 둘 다 빈 경우)보다 훨씬 많은 정상 매장 데이터가 함께 잘려나간
-것. 이 필터는 이 15-태스크 계획의 어떤 태스크도 직접 다루지 않는 파일(`SiteQueryService.java`)에
-있었지만, `search()`를 Task 13이 손대므로 여기서 같이 고친다 — **아래 Step 2 코드에 이미
-반영됨**(`!site.units().isEmpty() || !site.unlocatedRegistrations().isEmpty()`로 변경).
-Task 12는 이 발견을 근거로 승인됨(해당 3개 테스트 실패는 "최종적으로 전부 통과"라는 전역
-제약의 "최종적으로"에 해당 — Task 11의 선례와 동일하게, Task 13 완료 시점에 해소됨).
-
 - [ ] **Step 2: Modify SiteQueryService.java**
 
-`getSiteDetail`에 `unlocatedRegistrations` 매핑 추가, `getUnitDetail`에 `relatedLicenseGroups` 매핑
-추가, `toTenancyDto`에 `reliabilitySignal` 필드 채우기. **`search()`는 위에서 발견한 필터 버그를
-같이 고친다** — 무점포업종만 있는 PNU(모든 리스트가 빈 경우)만 제외하도록 조건을 넓힌다:
-
-```java
-    public SearchResponse search(String query) {
-        if (query == null || query.isBlank()) {
-            throw new InvalidQueryException();
-        }
-        List<SiteCandidateDto> candidates = tenancyQueryService.searchSites(query).stream()
-            // 2026-07-23: UNLOCATED(상세주소 전무하지만 실제 매장업종) 레코드가 있는 PNU까지
-            // 잘못 걸러내던 버그 수정 — units와 unlocatedRegistrations가 둘 다 빈 경우(순수
-            // 무점포업종만 있는 PNU)만 후보에서 제외한다.
-            .filter(site -> !site.units().isEmpty() || !site.unlocatedRegistrations().isEmpty())
-            .map(this::toCandidateDto)
-            .toList();
-        return new SearchResponse(candidates);
-    }
-```
+`search`/`toCandidateDto`는 그대로. `getSiteDetail`에 `unlocatedRegistrations` 매핑 추가, `getUnitDetail`에 `relatedLicenseGroups` 매핑 추가, `toTenancyDto`에 `reliabilitySignal` 필드 채우기:
 
 ```java
     public SiteDetailResponse getSiteDetail(String pnu) {

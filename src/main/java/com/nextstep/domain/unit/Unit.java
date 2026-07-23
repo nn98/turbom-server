@@ -7,8 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public record Unit(String unitId, String label, LocationSource locationSource, List<Tenancy> tenancies,
-                    String parsedFloor, String parsedUnitNo, String parseConfidence,
-                    RelatedLicenseGroups relatedLicenseGroups) {
+                    String parsedFloor, String parsedUnitNo, String parseConfidence) {
 
     public UnitStatistics statistics() {
         return UnitStatistics.from(tenancies);

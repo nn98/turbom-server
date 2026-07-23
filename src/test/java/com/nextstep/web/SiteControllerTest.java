@@ -24,18 +24,15 @@ class SiteControllerTest {
     private static final String NO_STOREFRONT_PNU = "4113110100100960001";
     private static final String DELETE_NO_STOREFRONT_PNU2 =
         "DELETE FROM licensed_business_record WHERE pnu = '" + NO_STOREFRONT_PNU + "'";
-    // 2026-07-23: LocationIdentity 도입(Task 9/12)으로 parsed_floor/unit_no/building_name이
-    // 전부 없으면 Unit이 아니라 unlocatedRegistrations로 빠진다 — 이 테스트의 목적(storefront
-    // 판정 검증)과 무관하므로 실제 storefront 레코드라면 응당 있을 parsed_floor를 채워 위치를 특정시킴
     private static final String INSERT_NO_STOREFRONT_STOREFRONT =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
             + "VALUES (9900000601, '4113110100100960001', '식품', '일반음식점', 'test-license-40', '진짜매장', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 7 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
-            + "FALSE, TRUE, '1', '3780000', 212818.475436898, 438579.588327304)";
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
     private static final String INSERT_NO_STOREFRONT_ONLY =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
@@ -81,18 +78,15 @@ class SiteControllerTest {
     // (호실정보 없는 단독 레코드라 물리적 신호 전무) noStorefrontRegistrations로 빠져 unit 자체가
     // 사라져 404가 나던 걸 '의원'으로 교체 — 이 테스트 목적(상세영업상태 없을 때 원본값 그대로
     // 응답)과는 무관한 업종이라 무해함
-    // 2026-07-23: LocationIdentity 도입(Task 9/12)으로 parsed_floor/unit_no/building_name이
-    // 전부 없으면 Unit이 아니라 unlocatedRegistrations로 빠져 "-U1" 유닛 자체가 없어진다 — 이
-    // 테스트의 목적(원본 영업상태값 통과 검증)과 무관하므로 parsed_floor를 채워 위치를 특정시킴
     private static final String INSERT_RAW_STATUS =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
+            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
             + "VALUES (9900000201, '4113110100100970000', '건강', '의원', 'test-license-5', "
             + "'원본상태 테스트', NULL, '휴업', NULL, NULL, '2024-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 3 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
-            + "FALSE, TRUE, '1', '3780000', 212818.475436898, 438579.588327304)";
+            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
 
     @Autowired MockMvc mockMvc;
 
@@ -284,97 +278,11 @@ class SiteControllerTest {
             .andExpect(jsonPath("$.site.longitude").isNumber())
             // 2026-07-22: Task 2(겹침감지 재분리)로 30 -> 31 — 층/호 미파싱 그룹 중 실제로 다른
             // 상호가 겹치는 기간에 영업한 사례가 재분리됨(TenancyQueryServiceTest 참고)
-            // 2026-07-23: Task 12(LocationIdentity UNLOCATED 분리)로 31 -> 30 — 상세주소가
-            // 전무한 (주)에코비트의 지하수정화업체 인허가 1건이 units에서 unlocatedRegistrations로
-            // 이동(실측값으로 갱신, 위 관례 그대로)
-            // 2026-07-23: Task 14(관련 인허가 페어링, UnitGrouper가 BusinessTypeRegistry를 알게 됨)로
-            // 30 -> 29 — 11층의 더조은병원(집단급식소)/아워홈(위탁급식영업)이 겹치는 기간에 영업해
-            // 겹침감지로 재분리되던 게, 등록된 관련 업종쌍이라 재분리 대상에서 제외되며 한 Unit으로
-            // 병합(relatedLicenseGroups로 노출, 실측값으로 갱신)
-            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(29)))
+            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(31)))
             // 5 = 캐치올 Unit의 병합 후 개수. 2026-07-18: businessName 단위 무점포업종 분리(Task 2)로
             // 20건이 noStorefrontRegistrations로 이동하며 21 -> 5로 감소 (다른 Unit이 늘어난 게 아님)
             .andExpect(jsonPath("$.units[*].totalTenancyCount", org.hamcrest.Matchers.hasItem(5)))
             .andExpect(jsonPath("$.units[*].currentStatus",
                 org.hamcrest.Matchers.hasItems("영업", "공실")));
-    }
-
-    private static final String RELATED_LICENSE_PNU = "4113110100100960003";
-    private static final String DELETE_RELATED_LICENSE_PNU =
-        "DELETE FROM licensed_business_record WHERE pnu = '" + RELATED_LICENSE_PNU + "'";
-    // 2026-07-23: LocationIdentity(Task 9/12)는 parsed_building_name/floor/unit_no가 전부 없으면
-    // UNLOCATED로 보낸다 — 두 레코드가 같은 물건(Unit)으로 묶여야 페어링을 검증할 수 있으므로
-    // 같은 parsed_floor를 채워 위치를 특정시킴(기존 관례, INSERT_NO_STOREFRONT_STOREFRONT 참고)
-    private static final String INSERT_COLLECTIVE_KITCHEN =
-        "INSERT INTO licensed_business_record "
-            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
-            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
-            + "VALUES (9900000801, '4113110100100960003', '식품', '집단급식소', 'test-license-50', '행복유치원', "
-            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
-            + "'경기도 성남시 수정구 테스트로 8 (테스트동)', '경기도 성남시 수정구 테스트동 98', "
-            + "FALSE, TRUE, '1', '3780000', 212818.475436898, 438579.588327304)";
-    private static final String INSERT_CATERING_SERVICE =
-        "INSERT INTO licensed_business_record "
-            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
-            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
-            + "VALUES (9900000802, '4113110100100960003', '식품', '위탁급식영업', 'test-license-51', '맛있는위탁업체', "
-            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
-            + "'경기도 성남시 수정구 테스트로 8 (테스트동)', '경기도 성남시 수정구 테스트동 98', "
-            + "FALSE, TRUE, '1', '3780000', 212818.475436898, 438579.588327304)";
-
-    @Test
-    @Sql(statements = {DELETE_RELATED_LICENSE_PNU, INSERT_COLLECTIVE_KITCHEN, INSERT_CATERING_SERVICE})
-    @Sql(statements = DELETE_RELATED_LICENSE_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
-    void 집단급식소와_위탁급식영업은_관련인허가로_묶인다() throws Exception {
-        mockMvc.perform(get("/api/sites/" + RELATED_LICENSE_PNU))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(1)));
-
-        mockMvc.perform(get("/api/units/" + RELATED_LICENSE_PNU + "-U1"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.timeline", org.hamcrest.Matchers.hasSize(2)))
-            .andExpect(jsonPath("$.relatedLicenseGroups", org.hamcrest.Matchers.hasSize(1)))
-            .andExpect(jsonPath("$.relatedLicenseGroups[0].businessNames",
-                org.hamcrest.Matchers.containsInAnyOrder("행복유치원", "맛있는위탁업체")));
-    }
-
-    private static final String TOBACCO_PNU = "4113110100100960004";
-    private static final String DELETE_TOBACCO_PNU =
-        "DELETE FROM licensed_business_record WHERE pnu = '" + TOBACCO_PNU + "'";
-    private static final String INSERT_TOBACCO_NO_ADDRESS =
-        "INSERT INTO licensed_business_record "
-            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
-            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
-            + "VALUES (9900000901, '4113110100100960004', '기타', '담배소매업', 'test-license-60', '씨유테스트점', "
-            + "NULL, '영업/정상', '0000', '정상', '1999-01-15', NULL, "
-            + "'경기도 성남시 수정구 테스트로 9 (테스트동)', '경기도 성남시 수정구 테스트동 96', "
-            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
-    // 2026-07-23: LocationIdentity(Task 9/12)는 parsed_building_name/floor/unit_no가 전부 없으면
-    // UNLOCATED로 보낸다 — 이 레코드는 실제 매장(units[0])으로 잡혀야 하므로 parsed_floor를
-    // 채워 위치를 특정시킴(위 담배소매업 레코드는 반대로 의도적으로 비워 UNLOCATED 경로를 검증)
-    private static final String INSERT_LATER_OTHER_BUSINESS =
-        "INSERT INTO licensed_business_record "
-            + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
-            + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
-            + "VALUES (9900000902, '4113110100100960004', '식품', '일반음식점', 'test-license-61', '나중에온가게', "
-            + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
-            + "'경기도 성남시 수정구 테스트로 9-1 (테스트동)', '경기도 성남시 수정구 테스트동 96-1', "
-            + "FALSE, TRUE, '1', '3780000', 212818.475436898, 438579.588327304)";
-
-    @Test
-    @Sql(statements = {DELETE_TOBACCO_PNU, INSERT_TOBACCO_NO_ADDRESS, INSERT_LATER_OTHER_BUSINESS})
-    @Sql(statements = DELETE_TOBACCO_PNU, executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
-    void 상세주소없는_담배소매업은_unlocatedRegistrations로_빠지고_확인필요_신호가_붙는다() throws Exception {
-        mockMvc.perform(get("/api/sites/" + TOBACCO_PNU))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(1)))
-            .andExpect(jsonPath("$.units[0].currentBusinessName").value("나중에온가게"))
-            .andExpect(jsonPath("$.unlocatedRegistrations", org.hamcrest.Matchers.hasSize(1)))
-            .andExpect(jsonPath("$.unlocatedRegistrations[0].businessName").value("씨유테스트점"))
-            .andExpect(jsonPath("$.unlocatedRegistrations[0].reliabilitySignal").value("NEEDS_VERIFICATION"));
     }
 }

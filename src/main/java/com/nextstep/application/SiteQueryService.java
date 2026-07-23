@@ -38,10 +38,7 @@ public class SiteQueryService {
             throw new InvalidQueryException();
         }
         List<SiteCandidateDto> candidates = tenancyQueryService.searchSites(query).stream()
-            // 2026-07-23: UNLOCATED(상세주소 전무하지만 실제 매장업종) 레코드가 있는 PNU까지
-            // 잘못 걸러내던 버그 수정 — units와 unlocatedRegistrations가 둘 다 빈 경우(순수
-            // 무점포업종만 있는 PNU)만 후보에서 제외한다.
-            .filter(site -> !site.units().isEmpty() || !site.unlocatedRegistrations().isEmpty())
+            .filter(site -> !site.units().isEmpty())
             .map(this::toCandidateDto)
             .toList();
         return new SearchResponse(candidates);
@@ -63,12 +60,8 @@ public class SiteQueryService {
         List<NoStorefrontRegistrationDto> noStorefrontRegistrations = site.noStorefrontRegistrations().stream()
             .map(this::toNoStorefrontRegistrationDto)
             .toList();
-        List<NoStorefrontRegistrationDto> unlocatedRegistrations = site.unlocatedRegistrations().stream()
-            .map(this::toNoStorefrontRegistrationDto)
-            .toList();
 
-        return new SiteDetailResponse(toSiteDto(site), units, noStorefrontRegistrations,
-            unlocatedRegistrations, disclaimer());
+        return new SiteDetailResponse(toSiteDto(site), units, noStorefrontRegistrations, disclaimer());
     }
 
     public UnitDetailResponse getUnitDetail(String unitId) {
@@ -90,21 +83,12 @@ public class SiteQueryService {
         List<TenancyDto> timeline = unit.tenancies().stream()
             .map(t -> toTenancyDto(t, marketInfo, storeDetails))
             .toList();
-        Map<Tenancy, TenancyDto> tenancyDtoByTenancy = new java.util.IdentityHashMap<>();
-        for (int i = 0; i < unit.tenancies().size(); i++) {
-            tenancyDtoByTenancy.put(unit.tenancies().get(i), timeline.get(i));
-        }
-        List<RelatedLicenseGroupDto> relatedLicenseGroups = unit.relatedLicenseGroups().groups().stream()
-            .map(g -> new RelatedLicenseGroupDto(
-                g.tenancies().stream().map(Tenancy::businessName).distinct().toList(),
-                g.tenancies().stream().map(tenancyDtoByTenancy::get).toList()))
-            .toList();
 
         UnitDto unitDto = new UnitDto(unit.unitId(), unit.label(), site.jibunAddress(), site.roadAddress(),
             unit.parsedFloor(), unit.parsedUnitNo(), unit.parseConfidence());
         UnitStatisticsDto statisticsDto = toStatisticsDto(unit);
 
-        return new UnitDetailResponse(unitDto, statisticsDto, timeline, relatedLicenseGroups, disclaimer());
+        return new UnitDetailResponse(unitDto, statisticsDto, timeline, disclaimer());
     }
 
     private Map<String, String> lookupStoreDetails(Double lon, Double lat) {
@@ -114,8 +98,7 @@ public class SiteQueryService {
 
     private NoStorefrontRegistrationDto toNoStorefrontRegistrationDto(Tenancy tenancy) {
         return new NoStorefrontRegistrationDto(tenancy.businessName(), tenancy.category(), tenancy.subCategory(),
-            tenancy.period().licensedAt(), tenancy.period().closedAt(), tenancy.displayStatus(),
-            tenancy.reliabilitySignal().level().name(), tenancy.reliabilitySignal().reason());
+            tenancy.period().licensedAt(), tenancy.period().closedAt(), tenancy.displayStatus());
     }
 
     private String lookupIndustryDetail(String businessName, Map<String, String> storeDetails) {
@@ -184,8 +167,7 @@ public class SiteQueryService {
         return new TenancyDto("t-" + tenancy.id(), tenancy.businessName(), tenancy.category(), tenancy.subCategory(),
             industryDetail, tenancy.period().licensedAt(), tenancy.period().closedAt(),
             tenancy.displayStatus(), tenancy.survivalMonths(), tenancy.closedAtEstimated(),
-            enrichmentSource, tenancy.reliabilitySignal().level().name(), tenancy.reliabilitySignal().reason(),
-            marketInfoDto);
+            enrichmentSource, marketInfoDto);
     }
 
     private DisclaimerDto disclaimer() {
