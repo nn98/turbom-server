@@ -21,6 +21,7 @@ public class ApiDtos {
 
     public record SiteDetailResponse(SiteDto site, List<UnitSummaryDto> units,
                                       List<NoStorefrontRegistrationDto> noStorefrontRegistrations,
+                                      List<NoStorefrontRegistrationDto> unlocatedRegistrations,
                                       DisclaimerDto disclaimer) {
     }
 
@@ -38,7 +39,11 @@ public class ApiDtos {
     }
 
     public record UnitDetailResponse(UnitDto unit, UnitStatisticsDto statistics, List<TenancyDto> timeline,
+                                      List<RelatedLicenseGroupDto> relatedLicenseGroups,
                                       DisclaimerDto disclaimer) {
+    }
+
+    public record RelatedLicenseGroupDto(List<String> businessNames, List<TenancyDto> tenancies) {
     }
 
     public record UnitDto(String unitId, String label, String jibunAddress, String roadAddress,
@@ -52,6 +57,7 @@ public class ApiDtos {
     public record TenancyDto(String tenancyId, String businessName, String category, String subCategory,
                               String industryDetail, LocalDate licensedAt, LocalDate closedAt, String status,
                               Integer survivalMonths, boolean closedAtEstimated, String enrichmentSource,
+                              String reliabilitySignal, String reliabilitySignalReason,
                               MarketInfoDto marketInfo) {
     }
 
