@@ -1,5 +1,7 @@
 package com.nextstep.application;
 
+import com.nextstep.domain.businesstype.BusinessTypeKey;
+import com.nextstep.domain.businesstype.BusinessTypeRegistry;
 import com.nextstep.domain.site.LocationIdentity;
 import com.nextstep.domain.unit.OccupancySpan;
 import com.nextstep.infra.persistence.LicensedBusinessRecordEntity;
@@ -18,6 +20,16 @@ public class UnitGrouper {
     private static final String UNIT_ID_SEPARATOR = "-U";
     // ponytail: 초기 추정값. 실사례로 오판(과병합/과분리) 나오면 조정(TenancyMerger와 값을 맞춘다)
     private static final int SAME_BUSINESS_MERGE_GAP_DAYS = 90;
+
+    private final BusinessTypeRegistry registry;
+
+    public UnitGrouper() {
+        this(new BusinessTypeRegistry());
+    }
+
+    public UnitGrouper(BusinessTypeRegistry registry) {
+        this.registry = registry;
+    }
 
     public record UnitGroup(String unitId, List<LicensedBusinessRecordEntity> records) {
     }
@@ -78,12 +90,17 @@ public class UnitGrouper {
             .collect(Collectors.groupingBy(LicensedBusinessRecordEntity::getBusinessName, LinkedHashMap::new, Collectors.toList()));
         if (byBusinessName.size() < 2) return false;
 
+        List<List<LicensedBusinessRecordEntity>> recordsByName = new ArrayList<>(byBusinessName.values());
         List<List<OccupancySpan>> spansByName = byBusinessName.entrySet().stream()
             .map(entry -> occupancySpans(entry.getKey(), entry.getValue()))
             .toList();
 
         for (int i = 0; i < spansByName.size(); i++) {
             for (int j = i + 1; j < spansByName.size(); j++) {
+                // 집단급식소/위탁급식영업처럼 등록된 관련 업종쌍은 같은 물건에서 서로 다른
+                // 상호명으로 겹쳐도 충돌이 아니라 정상적인 페어링 — RelatedLicenseLinker가
+                // 같은 Unit 안에서 묶을 수 있도록 재분리 대상에서 제외
+                if (areRelatedTypes(recordsByName.get(i).get(0), recordsByName.get(j).get(0))) continue;
                 for (OccupancySpan a : spansByName.get(i)) {
                     for (OccupancySpan b : spansByName.get(j)) {
                         if (a.overlaps(b)) return true;
@@ -92,6 +109,11 @@ public class UnitGrouper {
             }
         }
         return false;
+    }
+
+    private boolean areRelatedTypes(LicensedBusinessRecordEntity a, LicensedBusinessRecordEntity b) {
+        BusinessTypeKey keyB = new BusinessTypeKey(b.getCategory(), b.getSubCategory());
+        return registry.lookup(a.getCategory(), a.getSubCategory()).relatedTypeKeys().pairsWith(keyB);
     }
 
     private List<OccupancySpan> occupancySpans(String businessName, List<LicensedBusinessRecordEntity> records) {

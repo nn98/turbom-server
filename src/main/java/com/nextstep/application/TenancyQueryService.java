@@ -36,7 +36,7 @@ public class TenancyQueryService {
         this.recordRepository = recordRepository;
         BusinessTypeRegistry registry = new BusinessTypeRegistry();
         this.sitePartitioner = new SitePartitioner(registry);
-        this.unitGrouper = new UnitGrouper();
+        this.unitGrouper = new UnitGrouper(registry);
         this.tenancyMerger = new TenancyMerger(registry);
         this.relatedLicenseLinker = new RelatedLicenseLinker(registry);
     }

@@ -535,7 +535,11 @@ class TenancyQueryServiceTest {
         // 전혀 없는 레코드들은 site.unlocatedRegistrations()로 정확히 분리된다(gap 병합 후 1개
         // Tenancy로 뭉침). 나머지는 실제로는 위치 신호(건물명 등)가 남아있어 정상 Unit으로 재배치됨
         // — 38 + 1(unlocated) = 39로 storefront 파티션 총량은 그대로.
-        assertThat(site.units()).hasSize(30);
+        // 2026-07-23: Task 14(관련 인허가 페어링)로 30 -> 29. UnitGrouper가 BusinessTypeRegistry를
+        // 알게 되며, 11층의 더조은병원(집단급식소)/아워홈(위탁급식영업)처럼 겹치는 기간에 영업한
+        // 등록된 관련 업종쌍은 겹침감지 재분리 대상에서 제외 — 이전엔 2개 Unit으로 갈라졌던 게 이제
+        // relatedLicenseGroups로 묶인 1개 Unit이 됨(재배치일 뿐이라 Tenancy 총합 38은 그대로).
+        assertThat(site.units()).hasSize(29);
         assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(38);
         assertThat(site.unlocatedRegistrations()).hasSize(1);
         assertThat(site.noStorefrontRegistrations()).hasSize(20);
