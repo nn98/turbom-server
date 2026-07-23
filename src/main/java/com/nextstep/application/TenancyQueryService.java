@@ -1,14 +1,12 @@
 package com.nextstep.application;
 
-import com.nextstep.domain.site.AddressDetailParser;
+import com.nextstep.domain.businesstype.BusinessTypeRegistry;
 import com.nextstep.domain.site.AddressQuery;
-import com.nextstep.domain.site.NoStorefrontSubCategories;
 import com.nextstep.domain.site.Pnu;
 import com.nextstep.domain.site.Site;
 import com.nextstep.domain.tenancy.Tenancy;
-import com.nextstep.domain.tenancy.TenancyPeriod;
 import com.nextstep.domain.unit.LocationSource;
-import com.nextstep.domain.unit.OccupancySpan;
+import com.nextstep.domain.unit.RelatedLicenseGroups;
 import com.nextstep.domain.unit.Unit;
 import com.nextstep.infra.geo.KoreanTmCoordinateConverter;
 import com.nextstep.infra.persistence.LicensedBusinessRecordEntity;
@@ -16,38 +14,40 @@ import com.nextstep.infra.persistence.LicensedBusinessRecordRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.function.Function;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @Transactional(readOnly = true)
 public class TenancyQueryService {
 
     private static final String UNIT_ID_SEPARATOR = "-U";
-    // ponytail: 초기 추정값. 실사례로 오판(과병합/과분리) 나오면 조정
-    private static final int SAME_BUSINESS_MERGE_GAP_DAYS = 90;
 
     private final LicensedBusinessRecordRepository recordRepository;
+    private final SitePartitioner sitePartitioner;
+    private final UnitGrouper unitGrouper;
+    private final TenancyMerger tenancyMerger;
+    private final RelatedLicenseLinker relatedLicenseLinker;
 
     public TenancyQueryService(LicensedBusinessRecordRepository recordRepository) {
         this.recordRepository = recordRepository;
+        BusinessTypeRegistry registry = new BusinessTypeRegistry();
+        this.sitePartitioner = new SitePartitioner(registry);
+        this.unitGrouper = new UnitGrouper();
+        this.tenancyMerger = new TenancyMerger(registry);
+        this.relatedLicenseLinker = new RelatedLicenseLinker(registry);
     }
 
     public List<Site> searchSites(String query) {
+        // 2026-07-23 보정: 이 계획(7/20) 작성 이후 배포된 토큰 AND 매칭 검색(의사결정-기록.md
+        // §15) 이관 — 원안의 단순 substring 검색은 폐기.
         AddressQuery addressQuery = AddressQuery.of(query);
         List<LicensedBusinessRecordEntity> candidates = recordRepository.searchByAddress(addressQuery.anchorToken());
         String trimmedQuery = query.trim();
         List<LicensedBusinessRecordEntity> records = candidates.stream()
-            // pnu 정확일치는 토큰 매칭과 별개로 항상 통과시킨다 — pnu는 사람이 읽는 주소 텍스트에
-            // 그대로 안 들어있어서(별도 코드값) matchesAll이 못 잡는다.
             .filter(r -> trimmedQuery.equals(r.getPnu()) || addressQuery.matchesAll(r.getJibunAddress(), r.getRoadAddress()))
             .toList();
         return assembleSites(records);
@@ -66,18 +66,20 @@ public class TenancyQueryService {
         Optional<UnitReference> unitReference = parseUnitId(unitId);
         if (unitReference.isEmpty()) return Optional.empty();
 
-        List<LicensedBusinessRecordEntity> records = recordRepository.findByPnuOrderByLicensedAtAscIdAsc(unitReference.get().pnu());
+        List<LicensedBusinessRecordEntity> records =
+            recordRepository.findByPnuOrderByLicensedAtAscIdAsc(unitReference.get().pnu());
         if (records.isEmpty()) return Optional.empty();
 
-        // toSite()/getSiteDetail()이 매기는 unitId와 번호 체계가 어긋나면 안 되므로, 여기서도
-        // 동일하게 storefront 레코드만 unitGroups()에 넘긴다(무점포 업종은 애초에 Unit이 아님).
-        List<LicensedBusinessRecordEntity> storefrontRecords = partitionByStorefront(validRecords(records)).get(true);
-        List<UnitGroup> groups = unitGroups(unitReference.get().pnu(), storefrontRecords);
+        List<LicensedBusinessRecordEntity> valid = validRecords(records);
+        var partition = sitePartitioner.partition(valid);
+        var grouping = unitGrouper.group(unitReference.get().pnu(), partition.storefront());
         int groupIndex = unitReference.get().index() - 1;
-        if (groupIndex < 0 || groupIndex >= groups.size()) return Optional.empty();
+        if (groupIndex < 0 || groupIndex >= grouping.unitGroups().size()) return Optional.empty();
 
-        UnitGroup group = groups.get(groupIndex);
-        return Optional.of(new UnitWithSite(toUnit(group), toSiteWithoutUnits(group.records())));
+        UnitGrouper.UnitGroup group = grouping.unitGroups().get(groupIndex);
+        Unit unit = toUnit(group, valid);
+        Site siteWithoutUnits = toSiteWithoutUnits(group.records());
+        return Optional.of(new UnitWithSite(unit, siteWithoutUnits));
     }
 
     private List<LicensedBusinessRecordEntity> validRecords(List<LicensedBusinessRecordEntity> records) {
@@ -97,12 +99,21 @@ public class TenancyQueryService {
     private Site toSite(List<LicensedBusinessRecordEntity> records) {
         List<LicensedBusinessRecordEntity> valid = validRecords(records);
         LicensedBusinessRecordEntity representative = valid.isEmpty() ? records.get(0) : valid.get(0);
-        Map<Boolean, List<LicensedBusinessRecordEntity>> partitioned = partitionByStorefront(valid);
-        return new Site(new Pnu(representative.getPnu()), representative.getJibunAddress(),
-            representative.getRoadAddress(), KoreanTmCoordinateConverter
-                .fromEpsg5174(representative.getOriginalX(), representative.getOriginalY())
-                .orElse(null), toUnits(representative.getPnu(), partitioned.get(true)),
-            mergedTenancies(partitioned.get(false)));
+        String pnu = representative.getPnu();
+
+        var partition = sitePartitioner.partition(valid);
+        var grouping = unitGrouper.group(pnu, partition.storefront());
+
+        List<Unit> units = grouping.unitGroups().stream()
+            .map(group -> toUnit(group, valid))
+            .toList();
+        List<Tenancy> noStorefrontRegistrations = tenancyMerger.merge(valid, partition.noPhysicalStore());
+        List<Tenancy> unlocatedRegistrations = tenancyMerger.merge(valid, grouping.unlocated());
+
+        return new Site(new Pnu(pnu), representative.getJibunAddress(), representative.getRoadAddress(),
+            KoreanTmCoordinateConverter.fromEpsg5174(representative.getOriginalX(), representative.getOriginalY())
+                .orElse(null),
+            units, noStorefrontRegistrations, unlocatedRegistrations);
     }
 
     private Site toSiteWithoutUnits(List<LicensedBusinessRecordEntity> records) {
@@ -111,223 +122,16 @@ public class TenancyQueryService {
         return new Site(new Pnu(representative.getPnu()), representative.getJibunAddress(),
             representative.getRoadAddress(), KoreanTmCoordinateConverter
                 .fromEpsg5174(representative.getOriginalX(), representative.getOriginalY())
-                .orElse(null), List.of(), List.of());
+                .orElse(null), List.of(), List.of(), List.of());
     }
 
-    private List<Unit> toUnits(String pnu, List<LicensedBusinessRecordEntity> records) {
-        return unitGroups(pnu, records).stream()
-            .map(this::toUnit)
-            .toList();
-    }
-
-    private Map<Boolean, List<LicensedBusinessRecordEntity>> partitionByStorefront(
-        List<LicensedBusinessRecordEntity> records
-    ) {
-        Map<String, List<LicensedBusinessRecordEntity>> byBusinessName = records.stream()
-            .collect(Collectors.groupingBy(LicensedBusinessRecordEntity::getBusinessName, LinkedHashMap::new, Collectors.toList()));
-
-        List<LicensedBusinessRecordEntity> storefront = new ArrayList<>();
-        List<LicensedBusinessRecordEntity> noStorefront = new ArrayList<>();
-        for (List<LicensedBusinessRecordEntity> group : byBusinessName.values()) {
-            (hasPhysicalSignal(group) ? storefront : noStorefront).addAll(group);
-        }
-
-        Map<Boolean, List<LicensedBusinessRecordEntity>> result = new LinkedHashMap<>();
-        result.put(true, storefront);
-        result.put(false, noStorefront);
-        return result;
-    }
-
-    private boolean hasPhysicalSignal(List<LicensedBusinessRecordEntity> businessRecords) {
-        return businessRecords.stream().anyMatch(r ->
-            !NoStorefrontSubCategories.isNoStorefront(r.getCategory(), r.getSubCategory())
-                || r.getParsedFloor() != null
-                || r.getParsedUnitNo() != null
-        );
-    }
-
-    private Unit toUnit(UnitGroup group) {
-        List<Tenancy> tenancies = mergedTenancies(group.records());
+    private Unit toUnit(UnitGrouper.UnitGroup group, List<LicensedBusinessRecordEntity> allRecordsAtSamePnu) {
+        List<Tenancy> tenancies = tenancyMerger.merge(allRecordsAtSamePnu, group.records());
+        RelatedLicenseGroups relatedLicenseGroups = relatedLicenseLinker.link(tenancies);
         LicensedBusinessRecordEntity representative = group.records().get(0);
         return new Unit(group.unitId(), unitLabel(representative), LocationSource.LICENSE, tenancies,
-            representative.getParsedFloor(), representative.getParsedUnitNo(), representative.getParseConfidence());
-    }
-
-    private List<Tenancy> mergedTenancies(List<LicensedBusinessRecordEntity> records) {
-        Map<String, List<LicensedBusinessRecordEntity>> byBusinessName = records.stream()
-            .collect(Collectors.groupingBy(LicensedBusinessRecordEntity::getBusinessName, LinkedHashMap::new, Collectors.toList()));
-
-        return byBusinessName.values().stream()
-            .flatMap(sameNameRecords -> mergeByGap(sameNameRecords).stream())
-            .map(this::toTenancy)
-            .sorted(Comparator.comparing(t -> t.period().licensedAt()))
-            .toList();
-    }
-
-    private List<List<LicensedBusinessRecordEntity>> mergeByGap(List<LicensedBusinessRecordEntity> records) {
-        List<LicensedBusinessRecordEntity> sorted = records.stream()
-            .sorted(Comparator.comparing(LicensedBusinessRecordEntity::getLicensedAt))
-            .toList();
-
-        List<List<LicensedBusinessRecordEntity>> groups = new ArrayList<>();
-        List<LicensedBusinessRecordEntity> current = new ArrayList<>();
-        LocalDate currentEnd = null;
-        boolean currentOpen = false;
-
-        for (LicensedBusinessRecordEntity record : sorted) {
-            boolean withinGap = current.isEmpty()
-                || currentOpen
-                || !record.getLicensedAt().isAfter(currentEnd.plusDays(SAME_BUSINESS_MERGE_GAP_DAYS));
-
-            if (!withinGap) {
-                groups.add(current);
-                current = new ArrayList<>();
-                currentOpen = false;
-                currentEnd = null;
-            }
-            current.add(record);
-            if (record.getClosedAt() == null) {
-                currentOpen = true;
-                currentEnd = null;
-            } else if (!currentOpen && (currentEnd == null || record.getClosedAt().isAfter(currentEnd))) {
-                currentEnd = record.getClosedAt();
-            }
-        }
-        if (!current.isEmpty()) groups.add(current);
-        return groups;
-    }
-
-    private Tenancy toTenancy(List<LicensedBusinessRecordEntity> group) {
-        LicensedBusinessRecordEntity representative = representativeOf(group);
-        LocalDate licensedAt = group.stream()
-            .map(LicensedBusinessRecordEntity::getLicensedAt)
-            .min(LocalDate::compareTo)
-            .orElseThrow();
-        boolean anyOpen = group.stream().anyMatch(r -> r.getClosedAt() == null);
-        LocalDate closedAt = anyOpen ? null : group.stream()
-            .map(LicensedBusinessRecordEntity::getClosedAt)
-            .max(LocalDate::compareTo)
-            .orElseThrow();
-
-        return new Tenancy(
-            representative.getId(),
-            representative.getBusinessName(),
-            representative.getCategory(),
-            representative.getSubCategory(),
-            null,
-            new TenancyPeriod(licensedAt, closedAt),
-            representative.getBusinessStatus(),
-            "license_only",
-            com.nextstep.domain.businesstype.ReliabilitySignal.confirmed()
-        );
-    }
-
-    private LicensedBusinessRecordEntity representativeOf(List<LicensedBusinessRecordEntity> group) {
-        return group.stream()
-            .filter(r -> r.getClosedAt() == null)
-            .max(Comparator.comparing(LicensedBusinessRecordEntity::getLicensedAt))
-            .orElseGet(() -> group.stream()
-                .max(Comparator.comparing(LicensedBusinessRecordEntity::getClosedAt))
-                .orElseThrow());
-    }
-
-    private List<UnitGroup> unitGroups(String pnu, List<LicensedBusinessRecordEntity> records) {
-        List<List<LicensedBusinessRecordEntity>> primaryGroups = groupByKey(records, this::unitKey);
-        List<List<LicensedBusinessRecordEntity>> resolvedGroups = primaryGroups.stream()
-            .flatMap(this::resolveContention)
-            .toList();
-
-        List<UnitGroup> groups = new ArrayList<>();
-        int index = 1;
-        for (List<LicensedBusinessRecordEntity> groupRecords : resolvedGroups) {
-            groups.add(new UnitGroup(unitId(pnu, index), groupRecords));
-            index++;
-        }
-        return groups;
-    }
-
-    private Stream<List<LicensedBusinessRecordEntity>> resolveContention(List<LicensedBusinessRecordEntity> group) {
-        // 구체적 호실번호(UNIT:: 키)가 있는 그룹은 겹쳐도 그대로 둔다 — 실측 결과 실제 문제
-        // 사례(가락시장/AK플라자/백현동/롯데백화점)는 전부 호실번호 없는 케이스였고, 있는데
-        // 겹치는 경우는 대부분 폐업신고 누락으로 보는 게 더 합리적(기존 회귀 테스트도 이 전제).
-        if (unitKey(group.get(0)).startsWith("UNIT::") || !isContended(group)) {
-            return Stream.of(group);
-        }
-        List<List<LicensedBusinessRecordEntity>> byAddressText = groupByKey(group, this::addressTextKey);
-        return byAddressText.stream().flatMap(subGroup -> isContended(subGroup)
-            ? groupByKey(subGroup, LicensedBusinessRecordEntity::getBusinessName).stream()
-            : Stream.of(subGroup));
-    }
-
-    private List<List<LicensedBusinessRecordEntity>> groupByKey(
-        List<LicensedBusinessRecordEntity> records, Function<LicensedBusinessRecordEntity, String> keyFn
-    ) {
-        Map<String, List<LicensedBusinessRecordEntity>> byKey = records.stream()
-            .collect(Collectors.groupingBy(keyFn, LinkedHashMap::new, Collectors.toList()));
-        return new ArrayList<>(byKey.values());
-    }
-
-    private boolean isContended(List<LicensedBusinessRecordEntity> records) {
-        Map<String, List<LicensedBusinessRecordEntity>> byBusinessName = records.stream()
-            .collect(Collectors.groupingBy(LicensedBusinessRecordEntity::getBusinessName, LinkedHashMap::new, Collectors.toList()));
-        if (byBusinessName.size() < 2) return false;
-
-        List<List<OccupancySpan>> spansByName = byBusinessName.entrySet().stream()
-            .map(entry -> occupancySpans(entry.getKey(), entry.getValue()))
-            .toList();
-
-        for (int i = 0; i < spansByName.size(); i++) {
-            for (int j = i + 1; j < spansByName.size(); j++) {
-                for (OccupancySpan a : spansByName.get(i)) {
-                    for (OccupancySpan b : spansByName.get(j)) {
-                        if (a.overlaps(b)) return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    private List<OccupancySpan> occupancySpans(String businessName, List<LicensedBusinessRecordEntity> records) {
-        return mergeByGap(records).stream()
-            .map(stint -> {
-                LocalDate start = stint.stream()
-                    .map(LicensedBusinessRecordEntity::getLicensedAt)
-                    .min(LocalDate::compareTo)
-                    .orElseThrow();
-                boolean anyOpen = stint.stream().anyMatch(r -> r.getClosedAt() == null);
-                LocalDate end = anyOpen ? null : stint.stream()
-                    .map(LicensedBusinessRecordEntity::getClosedAt)
-                    .max(LocalDate::compareTo)
-                    .orElseThrow();
-                return new OccupancySpan(businessName, start, end);
-            })
-            .toList();
-    }
-
-    private String addressTextKey(LicensedBusinessRecordEntity record) {
-        return normalize(record.getJibunAddress()) + "::" + normalize(record.getRoadAddress());
-    }
-
-    private String unitKey(LicensedBusinessRecordEntity record) {
-        if (AddressDetailParser.CONFIDENCE_LOW.equals(record.getParseConfidence())) {
-            // UNPARSED: parsedBuildingName에 원본 상세 문자열이 저장됨
-            String detail = record.getParsedBuildingName();
-            return detail != null ? normalize(detail) : "__unknown__";
-        }
-        // HIGH (NONE / REGEX): 구조화된 위치 속성 — jibunAddress 표현 무관하게 동일 층·호 병합
-        String unitNo = record.getParsedUnitNo();
-        if (unitNo != null) {
-            // ponytail: 호실번호가 있으면 층 표기 생략 차이는 무시(호실번호가 층을 함의). 다른 건물에서
-            // 같은 호실번호가 우연히 겹치면 오탐 가능 — 실사례 발견 시 buildingName 비중 높여 보정
-            return "UNIT::" + unitNo + "::" + record.getParsedBuildingName();
-        }
-        return "FLOOR::" + record.getParsedFloor() + "::" + record.getParsedBuildingName();
-    }
-
-    private String normalize(String value) {
-        if (value == null) return "";
-        return value.trim().replaceAll("\\s+", " ");
+            representative.getParsedFloor(), representative.getParsedUnitNo(), representative.getParseConfidence(),
+            relatedLicenseGroups);
     }
 
     private Optional<UnitReference> parseUnitId(String unitId) {
@@ -347,12 +151,8 @@ public class TenancyQueryService {
         }
     }
 
-    private String unitId(String pnu, int index) {
-        return pnu + UNIT_ID_SEPARATOR + index;
-    }
-
     private String unitLabel(LicensedBusinessRecordEntity record) {
-        if (!AddressDetailParser.CONFIDENCE_HIGH.equals(record.getParseConfidence())) {
+        if (!com.nextstep.domain.site.AddressDetailParser.CONFIDENCE_HIGH.equals(record.getParseConfidence())) {
             return "단일 점포";
         }
 
@@ -370,9 +170,6 @@ public class TenancyQueryService {
             return buildingName;
         }
         return "단일(상세주소불명)";
-    }
-
-    private record UnitGroup(String unitId, List<LicensedBusinessRecordEntity> records) {
     }
 
     private record UnitReference(String pnu, int index) {

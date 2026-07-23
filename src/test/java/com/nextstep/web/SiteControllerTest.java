@@ -24,15 +24,18 @@ class SiteControllerTest {
     private static final String NO_STOREFRONT_PNU = "4113110100100960001";
     private static final String DELETE_NO_STOREFRONT_PNU2 =
         "DELETE FROM licensed_business_record WHERE pnu = '" + NO_STOREFRONT_PNU + "'";
+    // 2026-07-23: LocationIdentity 도입(Task 9/12)으로 parsed_floor/unit_no/building_name이
+    // 전부 없으면 Unit이 아니라 unlocatedRegistrations로 빠진다 — 이 테스트의 목적(storefront
+    // 판정 검증)과 무관하므로 실제 storefront 레코드라면 응당 있을 parsed_floor를 채워 위치를 특정시킴
     private static final String INSERT_NO_STOREFRONT_STOREFRONT =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
             + "VALUES (9900000601, '4113110100100960001', '식품', '일반음식점', 'test-license-40', '진짜매장', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 7 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
-            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+            + "FALSE, TRUE, '1', '3780000', 212818.475436898, 438579.588327304)";
     private static final String INSERT_NO_STOREFRONT_ONLY =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
@@ -78,15 +81,18 @@ class SiteControllerTest {
     // (호실정보 없는 단독 레코드라 물리적 신호 전무) noStorefrontRegistrations로 빠져 unit 자체가
     // 사라져 404가 나던 걸 '의원'으로 교체 — 이 테스트 목적(상세영업상태 없을 때 원본값 그대로
     // 응답)과는 무관한 업종이라 무해함
+    // 2026-07-23: LocationIdentity 도입(Task 9/12)으로 parsed_floor/unit_no/building_name이
+    // 전부 없으면 Unit이 아니라 unlocatedRegistrations로 빠져 "-U1" 유닛 자체가 없어진다 — 이
+    // 테스트의 목적(원본 영업상태값 통과 검증)과 무관하므로 parsed_floor를 채워 위치를 특정시킴
     private static final String INSERT_RAW_STATUS =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
             + "VALUES (9900000201, '4113110100100970000', '건강', '의원', 'test-license-5', "
             + "'원본상태 테스트', NULL, '휴업', NULL, NULL, '2024-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 3 (테스트동)', '경기도 성남시 수정구 테스트동 97', "
-            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+            + "FALSE, TRUE, '1', '3780000', 212818.475436898, 438579.588327304)";
 
     @Autowired MockMvc mockMvc;
 

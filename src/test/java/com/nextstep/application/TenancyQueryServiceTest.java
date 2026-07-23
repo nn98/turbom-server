@@ -151,15 +151,18 @@ class TenancyQueryServiceTest {
     private static final String NO_STOREFRONT_PNU = "4113110100100950000";
     private static final String DELETE_NO_STOREFRONT_PNU =
         "DELETE FROM licensed_business_record WHERE pnu = '" + NO_STOREFRONT_PNU + "'";
+    // 2026-07-23: LocationIdentity 도입(Task 9)으로 parsed_floor/unit_no/building_name이
+    // 전부 없으면 Unit이 아니라 unlocatedRegistrations로 빠진다 — 이 테스트의 목적(storefront
+    // 판정 검증)과 무관하므로 실제 storefront 레코드라면 응당 있을 parsed_floor를 채워 위치를 특정시킴
     private static final String INSERT_NO_STOREFRONT_STOREFRONT_RECORD =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
             + "VALUES (9900000501, '4113110100100950000', '식품', '일반음식점', 'test-license-30', '일반음식점가게', "
             + "NULL, '영업/정상', '0000', '정상', '2020-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 6, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 96 1층', "
-            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+            + "FALSE, TRUE, '1', '3780000', 212818.475436898, 438579.588327304)";
     private static final String INSERT_NO_STOREFRONT_ONLY_RECORD_1 =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
@@ -189,15 +192,20 @@ class TenancyQueryServiceTest {
             + "NULL, '영업/정상', '0000', '정상', '2023-01-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 6, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 96 2층', "
             + "FALSE, TRUE, '2', '3780000', 212818.475436898, 438579.588327304)";
+    // 2026-07-23: LocationIdentity 도입(Task 9)으로 parsed_floor가 전혀 없으면 Unit이 아니라
+    // unlocatedRegistrations로 빠진다(위 MIXED_STOREFRONT의 parsed_floor='2'와만 다르면 됨,
+    // 실제로는 같은 상호가 같은 위치에서 두 업종을 겸하는 경우가 흔하지만 이 테스트는 "서로 다른
+    // Unit으로 남아있어야 병합 검증이 아니라 storefront 전파 검증이 된다"는 기존 의도를 유지하기
+    // 위해 의도적으로 다른 층을 부여)
     private static final String INSERT_NO_STOREFRONT_MIXED_NOSTOREFRONT =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
             + "VALUES (9900000505, '4113110100100950000', '생활', '통신판매업', 'test-license-34', '겸업사업자', "
             + "NULL, '영업/정상', '0000', '정상', '2023-02-01', NULL, "
             + "'경기도 성남시 수정구 테스트로 6 (테스트동)', '경기도 성남시 수정구 테스트동 96', "
-            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+            + "FALSE, TRUE, '3', '3780000', 212818.475436898, 438579.588327304)";
     private static final String SAME_JIBUN_PNU = "4113110100100980000";
     private static final String CSV_ADDRESS_UNIT_PNU = "4113110800105590004";
     private static final String DELETE_SAME_JIBUN_PNU =
@@ -205,27 +213,30 @@ class TenancyQueryServiceTest {
     // 2026-07-18: sub_category가 원래 '동물미용업'이었으나 무점포업종 목록에 편입되며(호실정보
     // 없는 단독 레코드라 물리적 신호 전무) noStorefrontRegistrations로 빠져버려 '동물병원'으로
     // 교체 — 이 테스트의 목적(도로명주소 표기 차이로 인한 과분할 방지)과는 무관한 업종이라 무해함
+    // 2026-07-23: LocationIdentity 도입(Task 9)으로 parsed_floor/unit_no/building_name이 전부
+    // 없으면 Unit이 아니라 unlocatedRegistrations로 빠진다 — 두 레코드 모두 같은 parsed_floor를
+    // 부여해 "도로명주소 표기만 달라도 같은 물건으로 묶인다"는 이 테스트 본연의 의도를 유지
     private static final String INSERT_SAME_JIBUN_ROAD_1 =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
             + "VALUES (9900000101, '4113110100100980000', '동물', '동물병원', 'test-license-3', '동일지번 도로명1', "
             // 2026-07-22: Task 2(겹침감지) 도입 이후 closedAt=NULL(영업중)로 두면 아래 도로명2 레코드와
             // 기간이 겹쳐 "물리적으로 불가능한 겹침"으로 오인돼 재분리됨 — 이 테스트의 목적(도로명
             // 표기 차이만으로는 분리하지 않음)과 무관하므로 기간을 겹치지 않게 폐업 처리
             + "NULL, '폐업', '0002', '폐업', '2020-01-01', '2020-06-01', "
             + "'경기도 성남시 수정구 테스트로 2, 1층 (테스트동)', '경기도 성남시 수정구 테스트동 98', "
-            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+            + "FALSE, TRUE, '1', '3780000', 212818.475436898, 438579.588327304)";
     private static final String INSERT_SAME_JIBUN_ROAD_2 =
         "INSERT INTO licensed_business_record "
             + "(id, pnu, category, sub_category, license_no, business_name, business_type, business_status, "
             + "status_detail_code, status_detail, licensed_at, closed_at, road_address, jibun_address, "
-            + "address_separated, address_corrected, local_gov_code, original_x, original_y) "
+            + "address_separated, address_corrected, parsed_floor, local_gov_code, original_x, original_y) "
             + "VALUES (9900000102, '4113110100100980000', '동물', '동물병원', 'test-license-4', '동일지번 도로명2', "
             + "NULL, '폐업', '0002', '폐업', '2021-01-01', '2022-01-01', "
             + "'경기도 성남시 수정구 테스트로 2, 2층 (테스트동)', '경기도 성남시 수정구 테스트동 98', "
-            + "FALSE, TRUE, '3780000', 212818.475436898, 438579.588327304)";
+            + "FALSE, TRUE, '1', '3780000', 212818.475436898, 438579.588327304)";
     private static final String OVERLAP_TIER2_PNU = "4113110100100940000";
     private static final String DELETE_OVERLAP_TIER2_PNU =
         "DELETE FROM licensed_business_record WHERE pnu = '" + OVERLAP_TIER2_PNU + "'";
@@ -518,11 +529,15 @@ class TenancyQueryServiceTest {
         // 2026-07-22: Task 2(겹침감지 재분리) 도입으로 30 -> 31. 실데이터 중 층/호 파싱이 없는
         // 그룹에서 서로 다른 상호가 겹치는 기간으로 영업한 사례가 실제로 있어 1개 그룹이 2개로
         // 재분리됨 — Unit 개수만 늘고 Tenancy 총합(39)은 그대로(재분리는 재배치일 뿐 레코드 증감이 아님).
-        assertThat(site.units()).hasSize(31);
-        assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(39);
-        // 5는 "단일(상세주소불명)" 캐치올 Unit 몫 — 다른 Unit의 개수가 늘어난 게 아니라
-        // 무점포업종만 있던 businessName들이 noStorefrontRegistrations로 옮겨가며 캐치올 Unit만 크게 줄었다
-        assertThat(site.units()).anySatisfy(unit -> assertThat(unit.tenancies()).hasSize(5));
+        // 2026-07-23: Task 12(LocationIdentity 도입)로 31 -> 30, 39 -> 38. 캐치올 Unit
+        // ("단일(상세주소불명)", parsedFloor/parsedUnitNo/parsedBuildingName이 전부 null인 레코드를
+        // 부정확하게 "같은 위치"로 묶어 하나의 Unit으로 취급하던 동작)이 사라지고, 그 중 위치 신호가
+        // 전혀 없는 레코드들은 site.unlocatedRegistrations()로 정확히 분리된다(gap 병합 후 1개
+        // Tenancy로 뭉침). 나머지는 실제로는 위치 신호(건물명 등)가 남아있어 정상 Unit으로 재배치됨
+        // — 38 + 1(unlocated) = 39로 storefront 파티션 총량은 그대로.
+        assertThat(site.units()).hasSize(30);
+        assertThat(site.units().stream().mapToInt(unit -> unit.tenancies().size()).sum()).isEqualTo(38);
+        assertThat(site.unlocatedRegistrations()).hasSize(1);
         assertThat(site.noStorefrontRegistrations()).hasSize(20);
         assertThat(site.units().stream()
             .flatMap(unit -> unit.tenancies().stream())
