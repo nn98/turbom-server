@@ -35,7 +35,8 @@ public class ApiDtos {
     }
 
     public record NoStorefrontRegistrationDto(String businessName, String category, String subCategory,
-                                               LocalDate licensedAt, LocalDate closedAt, String status) {
+                                               LocalDate licensedAt, LocalDate closedAt, String status,
+                                               String reliabilitySignal, String reliabilitySignalReason) {
     }
 
     public record UnitDetailResponse(UnitDto unit, UnitStatisticsDto statistics, List<TenancyDto> timeline,

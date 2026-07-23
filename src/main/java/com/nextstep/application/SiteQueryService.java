@@ -114,7 +114,8 @@ public class SiteQueryService {
 
     private NoStorefrontRegistrationDto toNoStorefrontRegistrationDto(Tenancy tenancy) {
         return new NoStorefrontRegistrationDto(tenancy.businessName(), tenancy.category(), tenancy.subCategory(),
-            tenancy.period().licensedAt(), tenancy.period().closedAt(), tenancy.displayStatus());
+            tenancy.period().licensedAt(), tenancy.period().closedAt(), tenancy.displayStatus(),
+            tenancy.reliabilitySignal().level().name(), tenancy.reliabilitySignal().reason());
     }
 
     private String lookupIndustryDetail(String businessName, Map<String, String> storeDetails) {

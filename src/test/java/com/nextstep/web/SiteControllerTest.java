@@ -374,6 +374,7 @@ class SiteControllerTest {
             .andExpect(jsonPath("$.units", org.hamcrest.Matchers.hasSize(1)))
             .andExpect(jsonPath("$.units[0].currentBusinessName").value("나중에온가게"))
             .andExpect(jsonPath("$.unlocatedRegistrations", org.hamcrest.Matchers.hasSize(1)))
-            .andExpect(jsonPath("$.unlocatedRegistrations[0].businessName").value("씨유테스트점"));
+            .andExpect(jsonPath("$.unlocatedRegistrations[0].businessName").value("씨유테스트점"))
+            .andExpect(jsonPath("$.unlocatedRegistrations[0].reliabilitySignal").value("NEEDS_VERIFICATION"));
     }
 }
