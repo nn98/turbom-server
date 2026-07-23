@@ -1137,14 +1137,23 @@ git commit -m "feat: add SitePartitioner replacing TenancyQueryService.partition
 
 ---
 
-## Task 8: UnitGrouper (LocationIdentity로 Unit 그룹 형성, UNLOCATED 분리)
+## Task 8: UnitGrouper (LocationIdentity로 Unit 그룹 형성, UNLOCATED 분리, 충돌감지/재분리 포함)
+
+**2026-07-23 보정**: 이 계획 작성(7/20) 이후 배포된 `TenancyQueryService`의 충돌감지/재분리
+기능(대형 상가·시장에서 동시영업 다른 상호가 한 Unit으로 뭉치는 버그 수정, `의사결정-기록.md`
+§16)을 이 태스크로 이관한다. 그 기능이 만든 `OccupancySpan`(`domain.unit`, 이미 존재·커밋됨,
+수정 없음)을 그대로 쓴다 — `resolveContention`/`isContended`/`occupancySpans`/`addressTextKey`
+로직을 `TenancyQueryService`에서 여기로 옮기고, 대신 `LocationIdentity.key()`(이 태스크의 원래
+목표, UNLOCATED 분리)를 기반으로 동작하게 합친다.
 
 **Files:**
 - Create: `src/main/java/com/nextstep/application/UnitGrouper.java`
 - Test: `src/test/java/com/nextstep/application/UnitGrouperTest.java`
 
 **Interfaces:**
-- Consumes: `LocationIdentity` (Task 5), `LicensedBusinessRecordEntity`.
+- Consumes: `LocationIdentity` (Task 5), `LicensedBusinessRecordEntity`,
+  `OccupancySpan(String ownerKey, LocalDate start, LocalDate endOrNull)` +
+  `OccupancySpan.overlaps(OccupancySpan)` (기존, `com.nextstep.domain.unit`, 수정 없음).
 - Produces: `UnitGrouper.group(String pnu, List<LicensedBusinessRecordEntity> storefrontRecords): Grouping` where `record Grouping(List<UnitGroup> unitGroups, List<LicensedBusinessRecordEntity> unlocated)`, `record UnitGroup(String unitId, List<LicensedBusinessRecordEntity> records)`. `unitId` 포맷은 기존과 동일(`{pnu}-U{seq}`).
 
 - [ ] **Step 1: Write the failing test**
@@ -1153,6 +1162,7 @@ git commit -m "feat: add SitePartitioner replacing TenancyQueryService.partition
 package com.nextstep.application;
 
 import org.junit.jupiter.api.Test;
+import java.time.LocalDate;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -1194,13 +1204,84 @@ class UnitGrouperTest {
         assertThat(grouping.unitGroups().get(0).records()).containsExactly(r2);
         assertThat(grouping.unlocated()).containsExactly(r1);
     }
+
+    // 2026-07-23 보정 — 아래 3개는 배포된 충돌감지/재분리 기능(의사결정-기록.md §16)을 이관하며 추가.
+    // TestFixtures.record()는 모든 레코드에 동일한 jibunAddress를 쓰고 closedAt/roadAddress를
+    // 세팅할 수 없어서(§8 원안 헬퍼), 이 시나리오 전용으로 TestFixtures.recordForOverlap(...)을
+    // 새로 추가한다(기존 record()/Task 9가 추가하는 recordWithDates()는 그대로 둠 — 시그니처 안 건드림).
+
+    @Test
+    void 층만_겹치고_지번주소가_다르면_지번주소로_재분리된다() {
+        var r1 = TestFixtures.recordForOverlap(1L, "식품", "즉석판매제조가공업", "가락족발A",
+            null, "B1", null, "HIGH", LocalDate.of(2020, 1, 1), null,
+            "경기도 성남시 수정구 테스트동 94-1 지하1층", "경기도 성남시 수정구 테스트로 7, 지하1층 일부호 (테스트동)");
+        var r2 = TestFixtures.recordForOverlap(2L, "식품", "즉석판매제조가공업", "가락생선B",
+            null, "B1", null, "HIGH", LocalDate.of(2020, 6, 1), null,
+            "경기도 성남시 수정구 테스트동 94-2 지하1층", "경기도 성남시 수정구 테스트로 7, 지하1층 일부호 (테스트동)");
+
+        var grouping = grouper.group("pnu-2", List.of(r1, r2));
+
+        assertThat(grouping.unitGroups()).hasSize(2);
+        assertThat(grouping.unlocated()).isEmpty();
+    }
+
+    @Test
+    void 지번주소까지_같으면_상호명으로_재분리된다() {
+        var r1 = TestFixtures.recordForOverlap(1L, "식품", "식품소분업", "가락상회C",
+            null, "B1", null, "HIGH", LocalDate.of(2020, 1, 1), null,
+            "경기도 성남시 수정구 테스트동 93 지하1층", "경기도 성남시 수정구 테스트로 8, 지하1층 일부호 (테스트동)");
+        var r2 = TestFixtures.recordForOverlap(2L, "식품", "식품소분업", "가락상회D",
+            null, "B1", null, "HIGH", LocalDate.of(2020, 6, 1), null,
+            "경기도 성남시 수정구 테스트동 93 지하1층", "경기도 성남시 수정구 테스트로 8, 지하1층 일부호 (테스트동)");
+
+        var grouping = grouper.group("pnu-3", List.of(r1, r2));
+
+        assertThat(grouping.unitGroups()).hasSize(2);
+    }
+
+    @Test
+    void 구체적_호실번호가_있으면_겹쳐도_분리하지_않는다() {
+        // UNIT:: 키 그룹은 충돌감지 대상 제외 — 실제 문제 사례 전부 호실번호 없는 경우였고,
+        // 있는데 겹치는 건 폐업신고 누락일 가능성이 높음(회귀: TenancyQueryServiceTest의
+        // 같은_Unit이라도_businessName이_다르면_병합하지_않는다 와 동일 전제)
+        var r1 = TestFixtures.recordForOverlap(1L, "서비스", "미용", "가게D-1",
+            null, "4", "104", "HIGH", LocalDate.of(2020, 1, 1), null,
+            "경기도 성남시 수정구 테스트동 96 4층 104호", "경기도 성남시 수정구 테스트로 4, 4층 104호 (테스트동)");
+        var r2 = TestFixtures.recordForOverlap(2L, "서비스", "세탁", "가게D-2",
+            null, "4", "104", "HIGH", LocalDate.of(2020, 6, 1), null,
+            "경기도 성남시 수정구 테스트동 96 4층 104호", "경기도 성남시 수정구 테스트로 4, 4층 104호 (테스트동)");
+
+        var grouping = grouper.group("pnu-4", List.of(r1, r2));
+
+        assertThat(grouping.unitGroups()).hasSize(1);
+        assertThat(grouping.unitGroups().get(0).records()).containsExactly(r1, r2);
+    }
 }
+```
+
+`TestFixtures`에 이 시나리오 전용 오버로드를 추가한다(기존 `record(...)`는 그대로 두고 새 메서드만 추가):
+
+```java
+    static LicensedBusinessRecordEntity recordForOverlap(long id, String category, String subCategory,
+                                                           String businessName, String parsedBuildingName,
+                                                           String parsedFloor, String parsedUnitNo,
+                                                           String parseConfidence, LocalDate licensedAt,
+                                                           LocalDate closedAt, String jibunAddress,
+                                                           String roadAddress) {
+        LicensedBusinessRecordEntity entity = record(id, category, subCategory, businessName,
+            parsedBuildingName, parsedFloor, parsedUnitNo, parseConfidence);
+        set(entity, "licensedAt", licensedAt);
+        set(entity, "closedAt", closedAt);
+        set(entity, "jibunAddress", jibunAddress);
+        set(entity, "roadAddress", roadAddress);
+        return entity;
+    }
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd /home/ubuntu/app-build && mvn test -Dtest=UnitGrouperTest -q`
-Expected: FAIL — `UnitGrouper` 없음.
+Expected: FAIL — `UnitGrouper`/`TestFixtures.recordForOverlap` 없음.
 
 - [ ] **Step 3: Implement UnitGrouper**
 
@@ -1208,17 +1289,23 @@ Expected: FAIL — `UnitGrouper` 없음.
 package com.nextstep.application;
 
 import com.nextstep.domain.site.LocationIdentity;
+import com.nextstep.domain.unit.OccupancySpan;
 import com.nextstep.infra.persistence.LicensedBusinessRecordEntity;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class UnitGrouper {
 
     private static final String UNIT_ID_SEPARATOR = "-U";
+    // ponytail: 초기 추정값. 실사례로 오판(과병합/과분리) 나오면 조정(TenancyMerger와 값을 맞춘다)
+    private static final int SAME_BUSINESS_MERGE_GAP_DAYS = 90;
 
     public record UnitGroup(String unitId, List<LicensedBusinessRecordEntity> records) {
     }
@@ -1234,12 +1321,14 @@ public class UnitGrouper {
             (LocationIdentity.isUnlocated(key) ? unlocated : located).add(record);
         }
 
-        Map<String, List<LicensedBusinessRecordEntity>> byKey = located.stream()
-            .collect(Collectors.groupingBy(this::keyOf, LinkedHashMap::new, Collectors.toList()));
+        List<List<LicensedBusinessRecordEntity>> primaryGroups = groupByKey(located, this::keyOf);
+        List<List<LicensedBusinessRecordEntity>> resolvedGroups = primaryGroups.stream()
+            .flatMap(this::resolveContention)
+            .toList();
 
         List<UnitGroup> groups = new ArrayList<>();
         int index = 1;
-        for (List<LicensedBusinessRecordEntity> records : byKey.values()) {
+        for (List<LicensedBusinessRecordEntity> records : resolvedGroups) {
             groups.add(new UnitGroup(pnu + UNIT_ID_SEPARATOR + index, records));
             index++;
         }
@@ -1250,20 +1339,127 @@ public class UnitGrouper {
         return LocationIdentity.key(record.getParseConfidence(), record.getParsedBuildingName(),
             record.getParsedFloor(), record.getParsedUnitNo());
     }
+
+    private Stream<List<LicensedBusinessRecordEntity>> resolveContention(List<LicensedBusinessRecordEntity> group) {
+        // 구체적 호실번호(UNIT:: 키)가 있는 그룹은 겹쳐도 그대로 둔다 — 실측 결과 실제 문제
+        // 사례(가락시장/AK플라자/백현동/롯데백화점)는 전부 호실번호 없는 케이스였고, 있는데
+        // 겹치는 경우는 대부분 폐업신고 누락으로 보는 게 더 합리적(기존 회귀 테스트도 이 전제).
+        if (keyOf(group.get(0)).startsWith("UNIT::") || !isContended(group)) {
+            return Stream.of(group);
+        }
+        List<List<LicensedBusinessRecordEntity>> byAddressText = groupByKey(group, this::addressTextKey);
+        return byAddressText.stream().flatMap(subGroup -> isContended(subGroup)
+            ? groupByKey(subGroup, LicensedBusinessRecordEntity::getBusinessName).stream()
+            : Stream.of(subGroup));
+    }
+
+    private List<List<LicensedBusinessRecordEntity>> groupByKey(
+        List<LicensedBusinessRecordEntity> records, Function<LicensedBusinessRecordEntity, String> keyFn
+    ) {
+        Map<String, List<LicensedBusinessRecordEntity>> byKey = records.stream()
+            .collect(Collectors.groupingBy(keyFn, LinkedHashMap::new, Collectors.toList()));
+        return new ArrayList<>(byKey.values());
+    }
+
+    private boolean isContended(List<LicensedBusinessRecordEntity> records) {
+        Map<String, List<LicensedBusinessRecordEntity>> byBusinessName = records.stream()
+            .collect(Collectors.groupingBy(LicensedBusinessRecordEntity::getBusinessName, LinkedHashMap::new, Collectors.toList()));
+        if (byBusinessName.size() < 2) return false;
+
+        List<List<OccupancySpan>> spansByName = byBusinessName.entrySet().stream()
+            .map(entry -> occupancySpans(entry.getKey(), entry.getValue()))
+            .toList();
+
+        for (int i = 0; i < spansByName.size(); i++) {
+            for (int j = i + 1; j < spansByName.size(); j++) {
+                for (OccupancySpan a : spansByName.get(i)) {
+                    for (OccupancySpan b : spansByName.get(j)) {
+                        if (a.overlaps(b)) return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private List<OccupancySpan> occupancySpans(String businessName, List<LicensedBusinessRecordEntity> records) {
+        return mergeByGap(records).stream()
+            .map(stint -> {
+                LocalDate start = stint.stream()
+                    .map(LicensedBusinessRecordEntity::getLicensedAt)
+                    .min(LocalDate::compareTo)
+                    .orElseThrow();
+                boolean anyOpen = stint.stream().anyMatch(r -> r.getClosedAt() == null);
+                LocalDate end = anyOpen ? null : stint.stream()
+                    .map(LicensedBusinessRecordEntity::getClosedAt)
+                    .max(LocalDate::compareTo)
+                    .orElseThrow();
+                return new OccupancySpan(businessName, start, end);
+            })
+            .toList();
+    }
+
+    private List<List<LicensedBusinessRecordEntity>> mergeByGap(List<LicensedBusinessRecordEntity> records) {
+        List<LicensedBusinessRecordEntity> sorted = records.stream()
+            .sorted((a, b) -> a.getLicensedAt().compareTo(b.getLicensedAt()))
+            .toList();
+
+        List<List<LicensedBusinessRecordEntity>> groups = new ArrayList<>();
+        List<LicensedBusinessRecordEntity> current = new ArrayList<>();
+        LocalDate currentEnd = null;
+        boolean currentOpen = false;
+
+        for (LicensedBusinessRecordEntity record : sorted) {
+            boolean withinGap = current.isEmpty()
+                || currentOpen
+                || !record.getLicensedAt().isAfter(currentEnd.plusDays(SAME_BUSINESS_MERGE_GAP_DAYS));
+
+            if (!withinGap) {
+                groups.add(current);
+                current = new ArrayList<>();
+                currentOpen = false;
+                currentEnd = null;
+            }
+            current.add(record);
+            if (record.getClosedAt() == null) {
+                currentOpen = true;
+                currentEnd = null;
+            } else if (!currentOpen && (currentEnd == null || record.getClosedAt().isAfter(currentEnd))) {
+                currentEnd = record.getClosedAt();
+            }
+        }
+        if (!current.isEmpty()) groups.add(current);
+        return groups;
+    }
+
+    private String addressTextKey(LicensedBusinessRecordEntity record) {
+        return normalize(record.getJibunAddress()) + "::" + normalize(record.getRoadAddress());
+    }
+
+    private String normalize(String value) {
+        if (value == null) return "";
+        return value.trim().replaceAll("\\s+", " ");
+    }
 }
 ```
+
+**참고**: `mergeByGap`을 여기서도 private으로 다시 두는 이유 — `occupancySpans`(충돌 판정용, 상호별
+"재직 구간" 계산)와 Task 9 `TenancyMerger.mergeByGap`(실제 Tenancy 병합용)은 같은 알고리즘이지만
+서로 다른 목적의 서로 다른 클래스라 공유 유틸로 뽑지 않는다(원안 설계 그대로 — 지금도 두
+메서드가 완전히 동일한 코드로 각자 존재, 중복이지만 각 클래스의 응집도를 위해 의도적으로 유지).
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `cd /home/ubuntu/app-build && mvn test -Dtest=UnitGrouperTest -q`
-Expected: PASS, 3 tests.
+Expected: PASS, 7 tests(원안 3개 + 이번에 추가한 4개).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/nextstep/application/UnitGrouper.java \
-        src/test/java/com/nextstep/application/UnitGrouperTest.java
-git commit -m "feat: add UnitGrouper replacing TenancyQueryService.unitGroups/unitKey, splitting out UNLOCATED records"
+        src/test/java/com/nextstep/application/UnitGrouperTest.java \
+        src/test/java/com/nextstep/application/TestFixtures.java
+git commit -m "feat: add UnitGrouper replacing TenancyQueryService.unitGroups/unitKey, splitting out UNLOCATED records, with contention detection/re-split cascade"
 ```
 
 ---
@@ -1727,6 +1923,7 @@ git rm src/test/java/com/nextstep/domain/site/NoStorefrontSubCategoriesTest.java
 package com.nextstep.application;
 
 import com.nextstep.domain.businesstype.BusinessTypeRegistry;
+import com.nextstep.domain.site.AddressQuery;
 import com.nextstep.domain.site.Pnu;
 import com.nextstep.domain.site.Site;
 import com.nextstep.domain.tenancy.Tenancy;
@@ -1767,7 +1964,15 @@ public class TenancyQueryService {
     }
 
     public List<Site> searchSites(String query) {
-        return assembleSites(recordRepository.searchByAddress(query));
+        // 2026-07-23 보정: 이 계획(7/20) 작성 이후 배포된 토큰 AND 매칭 검색(의사결정-기록.md
+        // §15) 이관 — 원안의 단순 substring 검색은 폐기.
+        AddressQuery addressQuery = AddressQuery.of(query);
+        List<LicensedBusinessRecordEntity> candidates = recordRepository.searchByAddress(addressQuery.anchorToken());
+        String trimmedQuery = query.trim();
+        List<LicensedBusinessRecordEntity> records = candidates.stream()
+            .filter(r -> trimmedQuery.equals(r.getPnu()) || addressQuery.matchesAll(r.getJibunAddress(), r.getRoadAddress()))
+            .toList();
+        return assembleSites(records);
     }
 
     public Optional<Site> findSiteWithUnits(String pnu) {
@@ -2306,6 +2511,13 @@ cp CHANGELOG.md archive/$(date +%F)/CHANGELOG.md.before-businesstype-impl
 - [ ] **Step 3: `의사결정-기록.md` §11 상태 갱신**
 
 §11("업종(BusinessType) 도메인 재설계 — 설계 확정, 구현 대기") 맨 끝의 **상태** 문단을 교체:
+
+**2026-07-23 보정 — §16도 같이 갱신**: 이 계획 작성(7/20) 이후 배포된 대형 상가/시장 Unit
+충돌감지/재분리 기능(`의사결정-기록.md` §16)이 "알려진 한계"로 남겨뒀던 항목 — 집단급식소/
+위탁급식영업 관련인허가 페어링이 상호명 기준 재분리로 갈라지는 문제 — 이 태스크(Task 10
+`RelatedLicenseLinker`)로 실제 해결된다. §16의 "알려진 한계" 문단에 "§11 구현으로 해결됨,
+`RelatedLicenseLinker`가 처리" 한 줄을 추가해서 갱신한다(§16 자체를 삭제하거나 재작성하지
+않음 — 왜 그 시점엔 한계였는지의 기록 가치는 남긴다).
 
 ```markdown
 **상태**: 완료, 운영 반영됨. 커밋: `turbom-server` `<Task 14 Step 6/7 실제 커밋 해시로 교체>`.
