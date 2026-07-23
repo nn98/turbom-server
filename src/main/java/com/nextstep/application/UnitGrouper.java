@@ -71,10 +71,74 @@ public class UnitGrouper {
         if (keyOf(group.get(0)).startsWith("UNIT::") || !isContended(group)) {
             return Stream.of(group);
         }
+        return separateByMustSeparateEdges(group).stream();
+    }
+
+    // 3자 이상이 겹칠 때 관련업종쌍(예: 집단급식소/위탁급식영업)만 예외 처리하던 isContended가
+    // 그룹 전체를 all-or-nothing으로 재분리 대상 삼던 문제 수정 — 서로 충돌(겹침 AND 비관련쌍)
+    // 하는 상호명끼리만 분리하고, 충돌 없는 상호명(관련쌍 포함)은 하나로 유지한다.
+    // Union-Find: 충돌 없는 이름끼리 묶고, 충돌 있는 이름은 각자 다른 그룹으로 남긴다.
+    private List<List<LicensedBusinessRecordEntity>> separateByMustSeparateEdges(
+        List<LicensedBusinessRecordEntity> group
+    ) {
+        Map<String, List<LicensedBusinessRecordEntity>> byName = group.stream()
+            .collect(Collectors.groupingBy(LicensedBusinessRecordEntity::getBusinessName, LinkedHashMap::new, Collectors.toList()));
+        List<String> names = new ArrayList<>(byName.keySet());
+
+        int[] parent = new int[names.size()];
+        for (int i = 0; i < parent.length; i++) parent[i] = i;
+        for (int i = 0; i < names.size(); i++) {
+            for (int j = i + 1; j < names.size(); j++) {
+                List<LicensedBusinessRecordEntity> pair = new ArrayList<>(byName.get(names.get(i)));
+                pair.addAll(byName.get(names.get(j)));
+                if (!isContended(pair)) union(parent, i, j);
+            }
+        }
+
+        Map<Integer, List<String>> namesByComponent = new LinkedHashMap<>();
+        for (int i = 0; i < names.size(); i++) {
+            namesByComponent.computeIfAbsent(find(parent, i), k -> new ArrayList<>()).add(names.get(i));
+        }
+
+        List<List<LicensedBusinessRecordEntity>> result = new ArrayList<>();
+        for (List<String> componentNames : namesByComponent.values()) {
+            List<LicensedBusinessRecordEntity> componentRecords = group.stream()
+                .filter(r -> componentNames.contains(r.getBusinessName()))
+                .toList();
+            if (isContended(componentRecords)) {
+                // 이행적 병합의 부작용(A-B 무충돌, B-C 무충돌인데 A-C는 충돌)으로 한 컴포넌트에
+                // 충돌이 남은 드문 경우만 기존 tier2(주소텍스트)/tier3(상호명) 캐스케이드로 처리
+                result.addAll(resolveViaAddressAndNameCascade(componentRecords));
+            } else {
+                result.add(componentRecords);
+            }
+        }
+        return result;
+    }
+
+    private List<List<LicensedBusinessRecordEntity>> resolveViaAddressAndNameCascade(
+        List<LicensedBusinessRecordEntity> group
+    ) {
         List<List<LicensedBusinessRecordEntity>> byAddressText = groupByKey(group, this::addressTextKey);
-        return byAddressText.stream().flatMap(subGroup -> isContended(subGroup)
-            ? groupByKey(subGroup, LicensedBusinessRecordEntity::getBusinessName).stream()
-            : Stream.of(subGroup));
+        return byAddressText.stream()
+            .flatMap(subGroup -> isContended(subGroup)
+                ? groupByKey(subGroup, LicensedBusinessRecordEntity::getBusinessName).stream()
+                : Stream.of(subGroup))
+            .toList();
+    }
+
+    private int find(int[] parent, int i) {
+        while (parent[i] != i) {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+        }
+        return i;
+    }
+
+    private void union(int[] parent, int a, int b) {
+        int rootA = find(parent, a);
+        int rootB = find(parent, b);
+        if (rootA != rootB) parent[rootA] = rootB;
     }
 
     private List<List<LicensedBusinessRecordEntity>> groupByKey(

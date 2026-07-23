@@ -95,4 +95,30 @@ class UnitGrouperTest {
         assertThat(grouping.unitGroups()).hasSize(1);
         assertThat(grouping.unitGroups().get(0).records()).containsExactly(r1, r2);
     }
+
+    @Test
+    void 관련업종쌍과_겹치는_제3의_무관업체가_있어도_관련업종쌍은_분리되지_않는다() {
+        // 집단급식소/위탁급식영업(관련쌍, BusinessTypeRegistry에 등록됨)은 서로 겹쳐도 충돌이
+        // 아니지만, 같은 자리에서 겹치는 제3의 무관 업체(식품/일반음식점)가 있으면 기존
+        // isContended는 그룹 전체를 충돌로 보고 tier2/tier3 캐스케이드로 셋 다 분리시켰다.
+        // 이제는 실제 충돌(겹침 AND 비관련쌍)이 있는 이름끼리만 분리되고, 관련쌍은 유지되어야 한다.
+        var r1 = TestFixtures.recordForOverlap(1L, "식품", "집단급식소", "행복유치원",
+            "테스트빌딩", "3", null, "HIGH", LocalDate.of(2020, 1, 1), null,
+            "경기도 성남시 수정구 테스트동 97", "경기도 성남시 수정구 테스트로 10 (테스트동)");
+        var r2 = TestFixtures.recordForOverlap(2L, "식품", "위탁급식영업", "맛있는위탁업체",
+            "테스트빌딩", "3", null, "HIGH", LocalDate.of(2020, 1, 1), null,
+            "경기도 성남시 수정구 테스트동 97", "경기도 성남시 수정구 테스트로 10 (테스트동)");
+        var r3 = TestFixtures.recordForOverlap(3L, "식품", "일반음식점", "옆집식당",
+            "테스트빌딩", "3", null, "HIGH", LocalDate.of(2020, 1, 1), null,
+            "경기도 성남시 수정구 테스트동 97", "경기도 성남시 수정구 테스트로 10 (테스트동)");
+
+        var grouping = grouper.group("pnu-5", List.of(r1, r2, r3));
+
+        assertThat(grouping.unitGroups()).hasSize(2);
+        var recordsByGroup = grouping.unitGroups().stream()
+            .map(UnitGrouper.UnitGroup::records)
+            .toList();
+        assertThat(recordsByGroup).anySatisfy(records -> assertThat(records).containsExactlyInAnyOrder(r1, r2));
+        assertThat(recordsByGroup).anySatisfy(records -> assertThat(records).containsExactly(r3));
+    }
 }
